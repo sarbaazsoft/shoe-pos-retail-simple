@@ -38,6 +38,7 @@ import { UserAvatar } from '../common/UserAvatar.tsx';
 import { BarcodeSvg } from '../common/BarcodeSvg.tsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { CreateStaffModal } from './CreateStaffModal.tsx';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 interface SettingsViewProps {
   currentUser: any;
@@ -57,6 +58,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [activeTab, setActiveTab] = useState<'store' | 'users' | 'printers' | 'backup' | 'install'>(
     initialTab || 'store'
   );
+
+  const { containerRef: settingsTabContainerRef } = useScrollActiveTab<HTMLDivElement>(activeTab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
 
   useEffect(() => {
     if (initialTab) {
@@ -393,8 +399,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </motion.div>
 
-      {/* Settings Tab Menu - Underline Navigation with Centered 500ms Animated Transition */}
+      {/* Settings Tab Menu - Responsive Scrollable Underline Navigation */}
       <motion.div
+        ref={settingsTabContainerRef}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -405,6 +412,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           id="settings-tab-store"
           type="button"
           data-active={activeTab === 'store'}
+          data-tab="store"
           onClick={() => setActiveTab('store')}
           className={`tab-underline-link relative px-3.5 sm:px-4 py-3.5 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === 'store'
@@ -414,6 +422,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         >
           <Store className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'store' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
           <span>Shop &amp; Invoice Settings</span>
+          {activeTab === 'store' && (
+            <motion.div
+              layoutId="settingsActiveUnderline"
+              className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+            />
+          )}
         </button>
 
         {isAdmin && (
@@ -421,6 +436,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             id="settings-tab-users"
             type="button"
             data-active={activeTab === 'users'}
+            data-tab="users"
             onClick={() => setActiveTab('users')}
             className={`tab-underline-link relative px-3.5 sm:px-4 py-3.5 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'users'
@@ -439,6 +455,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {usersList.length}
               </span>
             )}
+            {activeTab === 'users' && (
+              <motion.div
+                layoutId="settingsActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
         )}
 
@@ -446,6 +469,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           id="settings-tab-printers"
           type="button"
           data-active={activeTab === 'printers'}
+          data-tab="printers"
           onClick={() => setActiveTab('printers')}
           className={`tab-underline-link relative px-3.5 sm:px-4 py-3.5 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === 'printers'
@@ -455,6 +479,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         >
           <Printer className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'printers' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
           <span>Hardware &amp; Printers</span>
+          {activeTab === 'printers' && (
+            <motion.div
+              layoutId="settingsActiveUnderline"
+              className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+            />
+          )}
         </button>
 
         {isAdmin && (
@@ -462,6 +493,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             id="settings-tab-backup"
             type="button"
             data-active={activeTab === 'backup'}
+            data-tab="backup"
             onClick={() => setActiveTab('backup')}
             className={`tab-underline-link relative px-3.5 sm:px-4 py-3.5 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'backup'
@@ -471,6 +503,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           >
             <Database className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'backup' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
             <span>Data Backup &amp; Restore</span>
+            {activeTab === 'backup' && (
+              <motion.div
+                layoutId="settingsActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
         )}
 
@@ -479,6 +518,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             id="settings-tab-install"
             type="button"
             data-active={activeTab === 'install'}
+            data-tab="install"
             onClick={() => setActiveTab('install')}
             className={`tab-underline-link relative px-3.5 sm:px-4 py-3.5 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 whitespace-nowrap cursor-pointer shrink-0 ${
               activeTab === 'install'
@@ -488,6 +528,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           >
             <ShieldCheck className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'install' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
             <span>Server Installer &amp; Security</span>
+            {activeTab === 'install' && (
+              <motion.div
+                layoutId="settingsActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
         )}
       </motion.div>
@@ -1287,19 +1334,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Header */}
-                  <div className="p-4 px-5 border-b border-rose-700/60 dark:border-rose-900/60 flex items-center justify-between bg-rose-600 dark:bg-gradient-to-r dark:from-rose-900 dark:via-rose-950 dark:to-slate-900 text-white">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
-                        <Trash2 className="w-4 h-4 text-white" />
+                  <div className="bg-slate-50 dark:bg-gradient-to-r dark:from-purple-900 dark:via-indigo-950 dark:to-slate-900 border-b border-slate-200 dark:border-purple-800/80 text-slate-800 dark:text-white px-5 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:bg-purple-500/20 dark:text-purple-300 border border-blue-500/20 dark:border-purple-400/30 flex items-center justify-center font-bold shadow-2xs">
+                        <Trash2 className="w-4 h-4" />
                       </div>
-                      <h3 className="font-bold text-sm tracking-tight">Delete Staff Account</h3>
+                      <div>
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white tracking-tight">Delete Staff Account</h3>
+                        <p className="text-xs text-slate-500 dark:text-purple-200/80">Permanent removal of staff member access</p>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => !isDeletingUser && setUserToDelete(null)}
-                      className="p-1 text-rose-200 hover:text-white rounded-lg transition cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-slate-700 dark:text-purple-300 dark:hover:text-white rounded-lg hover:bg-slate-200/60 dark:hover:bg-white/10 transition cursor-pointer"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-5 h-5" />
                     </button>
                   </div>
 

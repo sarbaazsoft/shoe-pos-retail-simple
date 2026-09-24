@@ -16,6 +16,7 @@ import {
 import { api } from '../../services/api.ts';
 import { formatStockPrice } from '../../utils/priceFormat.ts';
 import { SupplierPaymentModal } from './SupplierPaymentModal.tsx';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 interface SupplierLedgerModalProps {
   isOpen: boolean;
@@ -37,6 +38,10 @@ export const SupplierLedgerModal: React.FC<SupplierLedgerModalProps> = ({
   onPaymentRecorded,
 }) => {
   const [activeTab, setActiveTab] = useState<'statement' | 'payments' | 'purchases' | 'returns'>('statement');
+  const { containerRef: supplierTabContainerRef } = useScrollActiveTab<HTMLDivElement>(activeTab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [ledgerData, setLedgerData] = useState<{
     supplier: any;
@@ -239,8 +244,9 @@ export const SupplierLedgerModal: React.FC<SupplierLedgerModalProps> = ({
             </div>
           </div>
 
-          {/* Navigation Tabs - Underline Navigation with Centered 500ms Animated Transition */}
+          {/* Navigation Tabs - Responsive Scrollable Underline Navigation */}
           <div 
+            ref={supplierTabContainerRef}
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             className="px-5 border-b border-slate-200 dark:border-purple-900/40 flex items-center space-x-2 overflow-x-auto no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden bg-slate-50/50 dark:bg-slate-900"
           >
@@ -252,7 +258,9 @@ export const SupplierLedgerModal: React.FC<SupplierLedgerModalProps> = ({
             ].map((tab) => (
               <button
                 key={tab.id}
+                id={`supplier-ledger-tab-${tab.id}`}
                 data-active={activeTab === tab.id}
+                data-tab={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`tab-underline-link relative py-3.5 px-4 text-xs font-semibold transition-colors duration-300 flex items-center space-x-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
                   activeTab === tab.id
@@ -268,6 +276,13 @@ export const SupplierLedgerModal: React.FC<SupplierLedgerModalProps> = ({
                 }`}>
                   {tab.count}
                 </span>
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="supplierLedgerActiveUnderline"
+                    className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  />
+                )}
               </button>
             ))}
           </div>

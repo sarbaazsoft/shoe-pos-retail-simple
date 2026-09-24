@@ -24,12 +24,14 @@ import {
 import { api, setAuthToken } from '../../services/api.ts';
 import { UserAvatar } from '../common/UserAvatar.tsx';
 import { InstallAppModal } from '../common/InstallAppModal.tsx';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: any;
   onUserUpdated: (user: any) => void;
+  storeName?: string;
 }
 
 // Client-side image resize and compression helper for fast, compact storage
@@ -86,8 +88,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   currentUser,
   onUserUpdated,
+  storeName,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
+  const { containerRef: profileTabContainerRef } = useScrollActiveTab<HTMLDivElement>(activeTab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
 
   // Profile info state
   const [name, setName] = useState('');
@@ -304,16 +311,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Selection - Underline Navigation with Centered 500ms Animated Transition */}
+        {/* Tab Selection - Responsive Scrollable Underline Navigation */}
         <div 
+          ref={profileTabContainerRef}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           className="flex border-b border-slate-200 dark:border-[#1A263D] bg-slate-50/80 dark:bg-slate-950/60 px-6 pt-2.5 space-x-6 overflow-x-auto no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden"
         >
           <button
             id="profile-details-tab-btn"
             data-active={activeTab === 'profile'}
+            data-tab="profile"
             onClick={() => setActiveTab('profile')}
-            className={`tab-underline-link relative pb-3 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 cursor-pointer ${
+            className={`tab-underline-link relative pb-3 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'profile'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
                 : 'text-slate-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-300'
@@ -321,12 +330,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           >
             <User className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'profile' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
             <span>Profile &amp; Photo</span>
+            {activeTab === 'profile' && (
+              <motion.div
+                layoutId="profileActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
           <button
             id="profile-security-tab-btn"
             data-active={activeTab === 'password'}
+            data-tab="password"
             onClick={() => setActiveTab('password')}
-            className={`tab-underline-link relative pb-3 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 cursor-pointer ${
+            className={`tab-underline-link relative pb-3 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center space-x-2 cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'password'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
                 : 'text-slate-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-300'
@@ -334,6 +351,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           >
             <Key className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'password' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
             <span>Change Password</span>
+            {activeTab === 'password' && (
+              <motion.div
+                layoutId="profileActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
         </div>
 
@@ -750,6 +774,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       <InstallAppModal
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
+        storeName={storeName}
       />
     </div>
   );

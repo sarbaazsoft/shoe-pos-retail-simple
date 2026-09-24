@@ -16,17 +16,26 @@ import {
   Layers,
 } from 'lucide-react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 interface InstallAppModalProps {
   isOpen: boolean;
   onClose: () => void;
+  storeName?: string;
 }
 
 type PlatformTab = 'android' | 'apple' | 'desktop';
 
-export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClose }) => {
+export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClose, storeName }) => {
   const { isInstallable, isInstalled, isIOS, isAndroid, install } = usePWAInstall();
   const [activeTab, setActiveTab] = useState<PlatformTab>('android');
+  const effectiveStoreName = storeName || localStorage.getItem('cached_store_name') || 'TJ Shoes';
+  const pwaAppName = `${effectiveStoreName} By SarbaazSoft`;
+
+  const { containerRef: installTabContainerRef } = useScrollActiveTab<HTMLDivElement>(activeTab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
   const [downloadingExe, setDownloadingExe] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [downloadingApk, setDownloadingApk] = useState(false);
@@ -120,7 +129,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Install StepSync POS
+                Install {pwaAppName}
               </h3>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300">
                 PWA &amp; App Support
@@ -132,16 +141,19 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
           </div>
         </div>
 
-        {/* Platform Selector Tabs - Underline Navigation with Centered 500ms Animated Transition */}
+        {/* Platform Selector Tabs - Responsive Scrollable Underline Navigation */}
         <div 
+          ref={installTabContainerRef}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          className="grid grid-cols-3 gap-1 px-1 border-b border-slate-200/80 dark:border-purple-900/50 text-xs font-semibold overflow-x-auto no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden"
+          className="flex items-center sm:grid sm:grid-cols-3 gap-1 px-1 border-b border-slate-200/80 dark:border-purple-900/50 text-xs font-semibold overflow-x-auto no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden"
         >
           <button
             type="button"
+            id="install-tab-android"
             data-active={activeTab === 'android'}
+            data-tab="android"
             onClick={() => setActiveTab('android')}
-            className={`tab-underline-link relative flex items-center justify-center gap-1.5 py-3 px-2 transition-colors duration-300 cursor-pointer ${
+            className={`tab-underline-link relative flex items-center justify-center gap-1.5 py-3 px-3 sm:px-2 transition-colors duration-300 cursor-pointer whitespace-nowrap shrink-0 sm:shrink ${
               activeTab === 'android'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-300'
@@ -152,13 +164,22 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
             {isAndroid && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             )}
+            {activeTab === 'android' && (
+              <motion.div
+                layoutId="installActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
 
           <button
             type="button"
+            id="install-tab-apple"
             data-active={activeTab === 'apple'}
+            data-tab="apple"
             onClick={() => setActiveTab('apple')}
-            className={`tab-underline-link relative flex items-center justify-center gap-1.5 py-3 px-2 transition-colors duration-300 cursor-pointer ${
+            className={`tab-underline-link relative flex items-center justify-center gap-1.5 py-3 px-3 sm:px-2 transition-colors duration-300 cursor-pointer whitespace-nowrap shrink-0 sm:shrink ${
               activeTab === 'apple'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-300'
@@ -169,13 +190,22 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
             {isIOS && (
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
             )}
+            {activeTab === 'apple' && (
+              <motion.div
+                layoutId="installActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
 
           <button
             type="button"
+            id="install-tab-desktop"
             data-active={activeTab === 'desktop'}
+            data-tab="desktop"
             onClick={() => setActiveTab('desktop')}
-            className={`tab-underline-link relative flex items-center justify-center gap-1.5 py-3 px-2 transition-colors duration-300 cursor-pointer ${
+            className={`tab-underline-link relative flex items-center justify-center gap-1.5 py-3 px-3 sm:px-2 transition-colors duration-300 cursor-pointer whitespace-nowrap shrink-0 sm:shrink ${
               activeTab === 'desktop'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-300'
@@ -183,6 +213,13 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
           >
             <Monitor className="w-3.5 h-3.5 text-blue-500" />
             <span>Windows / PC</span>
+            {activeTab === 'desktop' && (
+              <motion.div
+                layoutId="installActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
         </div>
 
@@ -284,7 +321,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5 text-indigo-500" />
-                <span>{isInstalled ? 'App Already Installed' : 'Add WebAPK via Chrome / Browser'}</span>
+                <span>{isInstalled ? 'App Already Installed' : `Install ${pwaAppName} WebAPK`}</span>
               </button>
             </div>
 
@@ -305,7 +342,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                   If prompted with <em>"Install unknown apps"</em>, tap <strong className="text-slate-800 dark:text-slate-200">Settings</strong> and toggle <strong className="text-slate-800 dark:text-slate-200">"Allow from this source"</strong>.
                 </li>
                 <li className="leading-relaxed">
-                  Tap <strong className="text-slate-800 dark:text-slate-200">"Install"</strong> — StepSync POS will be added directly to your phone's Home Screen &amp; App Drawer!
+                  Tap <strong className="text-slate-800 dark:text-slate-200">"Install"</strong> — {pwaAppName} will be added directly to your phone's Home Screen &amp; App Drawer!
                 </li>
               </ol>
             </div>
@@ -373,7 +410,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                       Select "Add to Home Screen" <PlusSquare className="w-3.5 h-3.5 text-indigo-500 inline" />
                     </span>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Scroll down and tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong> in the top right.
+                      Scroll down and tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong> — <strong>{pwaAppName}</strong> will appear on your device's Home Screen!
                     </p>
                   </div>
                 </div>
@@ -420,7 +457,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                 ) : (
                   <>
                     <Monitor className="w-3.5 h-3.5" />
-                    Install Desktop Web App (PWA)
+                    Install {pwaAppName} (PWA)
                   </>
                 )}
               </button>

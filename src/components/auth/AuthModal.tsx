@@ -21,6 +21,7 @@ import { useTheme } from '../../context/ThemeContext.tsx';
 import { ShowroomBackground } from '../common/ShowroomBackground.tsx';
 import { PublicHeader } from '../common/PublicHeader.tsx';
 import { PublicFooter } from '../common/PublicFooter.tsx';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 interface AuthModalProps {
   onSuccess: (user: any) => void;
@@ -35,6 +36,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const isDark = theme === 'dark';
 
   const [tab, setTab] = useState<'login' | 'forgot' | 'reset'>('login');
+  const { containerRef: authTabContainerRef } = useScrollActiveTab<HTMLDivElement>(tab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
 
   // Form states
   const [email, setEmail] = useState('');
@@ -145,8 +150,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </p>
               </div>
 
-              {/* Card Tabs Navigation - Underline Navigation with Centered 500ms Animated Transition */}
+              {/* Card Tabs Navigation - Responsive Scrollable Underline Navigation */}
               <div 
+                ref={authTabContainerRef}
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 className="flex items-center justify-between border-b border-slate-200/80 dark:border-purple-900/60 mb-6 overflow-x-auto no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden"
               >
@@ -154,6 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   id="auth-tab-login"
                   type="button"
                   data-active={tab === 'login'}
+                  data-tab="login"
                   onClick={() => {
                     setTab('login');
                     setErrorMessage(null);
@@ -167,12 +174,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 >
                   <Fingerprint className={`w-4 h-4 transition-colors duration-200 ${tab === 'login' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
                   <span>Sign In</span>
+                  {tab === 'login' && (
+                    <motion.div
+                      layoutId="authActiveUnderline"
+                      className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                    />
+                  )}
                 </button>
 
                 <button
                   id="auth-tab-forgot"
                   type="button"
                   data-active={tab === 'forgot' || tab === 'reset'}
+                  data-tab="forgot"
                   onClick={() => {
                     setTab('forgot');
                     setErrorMessage(null);
@@ -186,6 +201,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 >
                   <KeyRound className={`w-4 h-4 transition-colors duration-200 ${tab === 'forgot' || tab === 'reset' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
                   <span>Reset PIN</span>
+                  {(tab === 'forgot' || tab === 'reset') && (
+                    <motion.div
+                      layoutId="authActiveUnderline"
+                      className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                    />
+                  )}
                 </button>
               </div>
 

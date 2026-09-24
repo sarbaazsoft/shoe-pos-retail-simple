@@ -242,23 +242,23 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white dark:bg-[#0D1322] border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 select-none no-print sticky top-0 z-20 h-9 sm:h-9.5 flex items-center px-3 sm:px-4 justify-between gap-2.5 sm:gap-3 md:gap-4 transition-colors">
+    <header className="bg-white dark:bg-[#0D1322] border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 select-none no-print sticky top-0 z-20 h-12 sm:h-13 flex items-center px-4 sm:px-6 justify-between gap-3 sm:gap-4 transition-colors">
       {/* LEFT: Mobile Menu Button + Global Search Bar */}
-      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 max-w-sm sm:max-w-md min-w-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-sm sm:max-w-md min-w-0">
         {/* Mobile Menu Toggle Button (< lg) */}
         <button
           type="button"
           onClick={onToggleMobileMenu}
-          className="lg:hidden h-6 w-6 sm:h-6.5 sm:w-6.5 flex items-center justify-center p-0.5 rounded-md border border-slate-200 dark:border-purple-400/40 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-purple-500/20 dark:text-purple-200 dark:hover:bg-purple-500/30 dark:hover:text-white dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] cursor-pointer shrink-0 shadow-2xs transition"
+          className="lg:hidden h-8.5 w-8.5 sm:h-9 sm:w-9 flex items-center justify-center p-1.5 rounded-lg border border-slate-200 dark:border-purple-400/40 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-purple-500/20 dark:text-purple-200 dark:hover:bg-purple-500/30 dark:hover:text-white dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] cursor-pointer shrink-0 shadow-2xs transition"
           aria-label="Toggle navigation menu"
         >
-          <Menu className="w-3.5 h-3.5 stroke-[2.2] dark:text-purple-200" />
+          <Menu className="w-4 h-4 stroke-[2.2] dark:text-purple-200" />
         </button>
 
         {/* Global Search Bar (Exact match to Reference Image) */}
         <div ref={searchRef} className="relative w-full min-w-0">
           <div className="relative flex items-center">
-            <Search className="w-3 h-3 text-slate-400 absolute left-2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -273,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowThemeDropdown(false);
               }}
               placeholder="Search products, customers, sales..."
-              className="h-6 sm:h-6.5 w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200/90 dark:border-slate-800 text-[11px] text-slate-900 dark:text-white placeholder:text-slate-400 pl-6.5 pr-6 py-0 rounded-md outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+              className="h-8 sm:h-8.5 w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200/90 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
             />
             {searchQuery && (
               <button
@@ -282,9 +282,9 @@ export const Header: React.FC<HeaderProps> = ({
                   setSearchQuery('');
                   setIsSearching(false);
                 }}
-                className="absolute right-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -298,7 +298,7 @@ export const Header: React.FC<HeaderProps> = ({
                 exit={{ opacity: 0, scale: 0.96, y: -8 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 style={{ transformOrigin: 'top center' }}
-                className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-[#0E1628] border border-slate-200 dark:border-[#1A263D] rounded-xl shadow-2xl p-1.5 z-50 max-h-96 overflow-y-auto space-y-1"
+                className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-[#0E1628] border border-slate-200 dark:border-[#1A263D] rounded-xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto space-y-1"
               >
               {/* Screen Jumps */}
               {searchResults.screens.length > 0 && (
@@ -403,7 +403,7 @@ export const Header: React.FC<HeaderProps> = ({
                 fetchLiveNotifications();
               }
             }}
-            className={`h-6 sm:h-6.5 flex items-center gap-1.5 px-2 py-0 rounded-md transition-all duration-200 cursor-pointer border ${
+            className={`h-8 sm:h-8.5 flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-lg transition-all duration-200 cursor-pointer border text-xs ${
               showNotifications
                 ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white border-purple-400/50 ring-2 ring-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_16px_rgba(147,51,234,0.4)]'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 dark:text-purple-200 dark:hover:text-white dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)]'
@@ -414,22 +414,22 @@ export const Header: React.FC<HeaderProps> = ({
             aria-haspopup="true"
           >
             <div className="relative shrink-0 flex items-center justify-center">
-              <Bell className="w-3 h-3 stroke-[2]" />
+              <Bell className="w-3.5 h-3.5 stroke-[2]" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[12px] h-2.5 px-0.5 rounded-full bg-rose-500 text-white font-bold text-[7.5px] flex items-center justify-center ring-1 ring-white dark:ring-[#120726]">
+                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3 px-0.5 rounded-full bg-rose-500 text-white font-bold text-[8px] flex items-center justify-center ring-1 ring-white dark:ring-[#120726]">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </div>
             <span
-              className={`hidden sm:inline-block text-[11px] font-semibold ${
+              className={`hidden sm:inline-block text-xs font-semibold ${
                 showNotifications ? 'text-white' : 'text-slate-700 dark:text-purple-200'
               }`}
             >
               Alerts
             </span>
             <ChevronDown
-              className={`w-2.5 h-2.5 transition-transform duration-200 ease-out hidden sm:inline-block opacity-75 ${
+              className={`w-3 h-3 transition-transform duration-200 ease-out hidden sm:inline-block opacity-75 ${
                 showNotifications ? 'rotate-180' : ''
               }`}
             />
@@ -443,7 +443,7 @@ export const Header: React.FC<HeaderProps> = ({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.94, y: -8 }}
                 transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute right-0 sm:right-auto sm:left-0 top-full mt-1.5 w-72 sm:w-76 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#120726] border border-slate-200 dark:border-purple-400/40 rounded-xl shadow-2xl dark:shadow-[0_0_25px_rgba(147,51,234,0.25)] p-1.5 z-50 backdrop-blur-md origin-top-right sm:origin-top-left"
+                className="absolute right-0 sm:right-auto sm:left-0 top-full mt-2 w-76 sm:w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#120726] border border-slate-200 dark:border-purple-400/40 rounded-xl shadow-2xl dark:shadow-[0_0_25px_rgba(147,51,234,0.25)] p-2 z-50 backdrop-blur-md origin-top-right sm:origin-top-left"
               >
                 {/* Header */}
                 <div className="px-2.5 py-1.5 border-b border-slate-100 dark:border-purple-800/40 mb-1 flex items-center justify-between">
@@ -601,10 +601,10 @@ export const Header: React.FC<HeaderProps> = ({
                   } catch {}
                 }
               }}
-              className="hidden sm:inline-flex items-center h-6 sm:h-6.5 gap-1.5 px-2 py-0 rounded-md bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-700/60 text-blue-700 dark:text-blue-300 text-[11px] font-bold transition shadow-2xs cursor-pointer"
+              className="hidden sm:inline-flex items-center h-8 sm:h-8.5 gap-2 px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-700/60 text-blue-700 dark:text-blue-300 text-xs font-bold transition shadow-2xs cursor-pointer"
               title="You are browsing in Cashier Mode. Click to switch back to Admin mode."
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>Browse as Admin</span>
             </button>
           )}
@@ -619,7 +619,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowThemeDropdown(false);
                 setShowNotifications(false);
               }}
-              className={`h-6 sm:h-6.5 flex items-center gap-1.5 px-2 py-0 rounded-md transition-all duration-200 cursor-pointer border ${
+              className={`h-8 sm:h-8.5 flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-lg transition-all duration-200 cursor-pointer border text-xs ${
                 showUserDropdown
                   ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white border-purple-400/50 ring-2 ring-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_16px_rgba(147,51,234,0.4)]'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 dark:text-purple-200 dark:hover:text-white dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)]'
@@ -628,16 +628,16 @@ export const Header: React.FC<HeaderProps> = ({
               aria-expanded={showUserDropdown}
               aria-haspopup="true"
             >
-              <User className="w-3 h-3 stroke-[2] shrink-0 text-current opacity-90" />
+              <User className="w-3.5 h-3.5 stroke-[2] shrink-0 text-current opacity-90" />
               <span
-                className={`hidden sm:inline-block text-[11px] font-bold max-w-[100px] truncate ${
+                className={`hidden sm:inline-block text-xs font-bold max-w-[120px] truncate ${
                   showUserDropdown ? 'text-white' : 'text-slate-800 dark:text-purple-200'
                 }`}
               >
                 {currentUser?.name || 'Admin'}
               </span>
               <ChevronDown
-                className={`w-2.5 h-2.5 transition-transform duration-200 ease-out opacity-75 ${
+                className={`w-3 h-3 transition-transform duration-200 ease-out opacity-75 ${
                   showUserDropdown ? 'rotate-180' : ''
                 }`}
               />
@@ -652,24 +652,24 @@ export const Header: React.FC<HeaderProps> = ({
                   exit={{ opacity: 0, scale: 0.94, y: -8 }}
                   transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                   style={{ transformOrigin: 'top right' }}
-                  className="absolute right-0 left-auto top-full mt-1.5 w-60 sm:w-64 bg-white dark:bg-[#120726] border border-slate-200 dark:border-purple-400/40 rounded-xl shadow-2xl dark:shadow-[0_0_25px_rgba(147,51,234,0.25)] p-1.5 z-50 backdrop-blur-md space-y-0.5"
+                  className="absolute right-0 left-auto top-full mt-2 w-68 sm:w-76 bg-white dark:bg-[#120726] border border-slate-200 dark:border-purple-400/40 rounded-xl shadow-2xl dark:shadow-[0_0_25px_rgba(147,51,234,0.25)] p-2.5 z-50 backdrop-blur-md space-y-1.5"
                 >
                   {/* Unified Identity & Role Card: User info DP + Role card wrapped in one card with dark mode gradient */}
-                  <div className="p-2 rounded-lg bg-slate-50/80 dark:bg-gradient-to-r dark:from-purple-900 dark:via-indigo-950 dark:to-slate-900 border border-slate-100 dark:border-purple-800/80 dark:text-white transition-colors mb-0.5 space-y-1.5">
+                  <div className="p-2.5 rounded-lg bg-slate-50/80 dark:bg-gradient-to-r dark:from-purple-900 dark:via-indigo-950 dark:to-slate-900 border border-slate-100 dark:border-purple-800/80 dark:text-white transition-colors mb-0.5 space-y-2">
                     {/* Row 1: Enlarged circular DP on Left, Name and Email on Right */}
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-3">
                       <UserAvatar
                         name={currentUser?.name}
                         avatarUrl={currentUser?.avatarUrl || currentUser?.avatar_url}
                         role={currentUser?.role}
-                        size="md"
-                        className="shrink-0 rounded-full"
+                        size="lg"
+                        className="shrink-0 rounded-full ring-2 ring-purple-500/40 shadow-md"
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate leading-tight">
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate leading-tight">
                           {currentUser?.name || 'Admin'}
                         </div>
-                        <div className="text-[10px] text-slate-500 dark:text-purple-200/80 truncate leading-tight mt-0.5">
+                        <div className="text-xs text-slate-500 dark:text-purple-200/80 truncate leading-tight mt-0.5">
                           {currentUser?.email || 'admin@store.com'}
                         </div>
                       </div>
@@ -685,16 +685,16 @@ export const Header: React.FC<HeaderProps> = ({
 
                       if (isAdminMode) {
                         return (
-                          <div className="p-1.5 rounded-md bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 space-y-1.5 dark:shadow-[0_0_10px_rgba(16,185,129,0.15)] backdrop-blur-xs">
+                          <div className="p-2 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 space-y-2 dark:shadow-[0_0_10px_rgba(16,185,129,0.15)] backdrop-blur-xs">
                             <div className="flex items-center justify-between gap-1">
-                              <div className="flex items-center gap-1 min-w-0">
-                                <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                <span className="text-[9px] font-bold tracking-wide uppercase truncate">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span className="text-[10px] font-bold tracking-wide uppercase truncate">
                                   Role: Admin
                                 </span>
                               </div>
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7.5px] font-bold bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950 uppercase tracking-wider shrink-0">
-                                <span className="w-1 h-1 rounded-full bg-white dark:bg-emerald-950 animate-pulse" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950 uppercase tracking-wider shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-emerald-950 animate-pulse" />
                                 Verified
                               </span>
                             </div>
@@ -723,10 +723,10 @@ export const Header: React.FC<HeaderProps> = ({
                                 }
                                 onTabChange?.('pos');
                               }}
-                              className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-[10.5px] font-bold transition shadow-xs cursor-pointer"
+                              className="w-full h-9 sm:h-9.5 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-bold transition shadow-sm cursor-pointer"
                               title="Browse as cashier to operate POS terminal"
                             >
-                              <ShoppingCart className="w-2.5 h-2.5 stroke-[2.2] shrink-0" />
+                              <ShoppingCart className="w-4 h-4 stroke-[2.2] shrink-0" />
                               <span>Browse as Cashier</span>
                             </button>
                           </div>
@@ -736,18 +736,18 @@ export const Header: React.FC<HeaderProps> = ({
                       // User is in Cashier mode (currentUser.role === 'CASHIER')
                       return (
                         <div
-                          className={`p-1.5 rounded-md bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/30 text-blue-800 dark:text-blue-300 dark:shadow-[0_0_10px_rgba(59,130,246,0.15)] backdrop-blur-xs ${
-                            isRealAdmin ? 'space-y-1.5' : ''
+                          className={`p-2 rounded-lg bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/30 text-blue-800 dark:text-blue-300 dark:shadow-[0_0_10px_rgba(59,130,246,0.15)] backdrop-blur-xs ${
+                            isRealAdmin ? 'space-y-2' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1">
-                            <div className="flex items-center gap-1 min-w-0">
-                              <ShoppingCart className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                              <span className="text-[9px] font-bold tracking-wide uppercase truncate">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <ShoppingCart className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span className="text-[10px] font-bold tracking-wide uppercase truncate">
                                 Role: Cashier Mode
                               </span>
                             </div>
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7.5px] font-bold bg-blue-600 text-white dark:bg-blue-400 dark:text-blue-950 uppercase tracking-wider shrink-0">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-bold bg-blue-600 text-white dark:bg-blue-400 dark:text-blue-950 uppercase tracking-wider shrink-0">
                               POS Terminal
                             </span>
                           </div>
@@ -775,10 +775,10 @@ export const Header: React.FC<HeaderProps> = ({
                                   } catch {}
                                 }
                               }}
-                              className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-[10.5px] font-bold transition shadow-xs cursor-pointer"
+                              className="w-full h-9 sm:h-9.5 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold transition shadow-sm cursor-pointer"
                               title="Browse as full Store Administrator"
                             >
-                              <ShieldCheck className="w-2.5 h-2.5 stroke-[2.2] shrink-0" />
+                              <ShieldCheck className="w-4 h-4 stroke-[2.2] shrink-0" />
                               <span>Browse as Admin</span>
                             </button>
                           )}
@@ -794,10 +794,10 @@ export const Header: React.FC<HeaderProps> = ({
                       setShowUserDropdown(false);
                       onOpenProfile?.();
                     }}
-                    className="w-full flex items-center gap-2 px-2 py-1 text-xs font-medium rounded-lg transition cursor-pointer text-slate-700 dark:text-purple-200 hover:bg-gradient-to-r hover:from-purple-600 hover:via-indigo-600 hover:to-purple-700 hover:text-white dark:hover:text-white dark:hover:bg-purple-500/25 group border border-transparent"
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer text-slate-700 dark:text-purple-200 hover:bg-gradient-to-r hover:from-purple-600 hover:via-indigo-600 hover:to-purple-700 hover:text-white dark:hover:text-white dark:hover:bg-purple-500/25 group border border-transparent"
                   >
-                    <UserCog className="w-3 h-3 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
-                    <span className="truncate text-[11px]">Profile & Security</span>
+                    <UserCog className="w-3.5 h-3.5 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
+                    <span className="truncate text-xs">Profile & Security</span>
                   </button>
 
                   {/* Theme Switcher Quick Row */}
@@ -807,19 +807,19 @@ export const Header: React.FC<HeaderProps> = ({
                       setShowUserDropdown(false);
                       setShowThemeDropdown(true);
                     }}
-                    className="w-full flex items-center justify-between px-2 py-1 text-xs font-medium rounded-lg transition cursor-pointer text-slate-700 dark:text-purple-200 hover:bg-gradient-to-r hover:from-purple-600 hover:via-indigo-600 hover:to-purple-700 hover:text-white dark:hover:text-white dark:hover:bg-purple-500/25 group border border-transparent"
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer text-slate-700 dark:text-purple-200 hover:bg-gradient-to-r hover:from-purple-600 hover:via-indigo-600 hover:to-purple-700 hover:text-white dark:hover:text-white dark:hover:bg-purple-500/25 group border border-transparent"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       {themeMode === 'dark' ? (
-                        <Moon className="w-3 h-3 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
+                        <Moon className="w-3.5 h-3.5 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
                       ) : themeMode === 'light' ? (
-                        <Sun className="w-3 h-3 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
+                        <Sun className="w-3.5 h-3.5 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
                       ) : (
-                        <Monitor className="w-3 h-3 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
+                        <Monitor className="w-3.5 h-3.5 stroke-[2] transition-colors shrink-0 text-current opacity-80 group-hover:opacity-100" />
                       )}
-                      <span className="capitalize truncate text-[11px]">Theme: {themeMode}</span>
+                      <span className="capitalize truncate text-xs">Theme: {themeMode}</span>
                     </div>
-                    <span className="text-[9px] font-semibold text-purple-600 dark:text-purple-200 group-hover:text-white group-hover:bg-white/20 group-hover:border-white/30 bg-purple-50 dark:bg-purple-500/20 px-1.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-400/40 transition-colors shrink-0">
+                    <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-200 group-hover:text-white group-hover:bg-white/20 group-hover:border-white/30 bg-purple-50 dark:bg-purple-500/20 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-400/40 transition-colors shrink-0">
                       Change
                     </span>
                   </button>
@@ -831,39 +831,39 @@ export const Header: React.FC<HeaderProps> = ({
                       setShowUserDropdown(false);
                       onTabChange?.('settings');
                     }}
-                    className={`w-full flex items-center justify-between px-2 py-1 text-xs transition cursor-pointer rounded-lg ${
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs transition cursor-pointer rounded-lg ${
                       currentTab === 'settings'
                         ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white font-semibold shadow-md shadow-purple-600/25 border border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)]'
                         : 'text-slate-700 dark:text-purple-200 font-medium hover:bg-gradient-to-r hover:from-purple-600 hover:via-indigo-600 hover:to-purple-700 hover:text-white dark:hover:text-white dark:hover:bg-purple-500/25 group border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <Settings
-                        className={`w-3 h-3 stroke-[2] transition-colors shrink-0 ${
+                        className={`w-3.5 h-3.5 stroke-[2] transition-colors shrink-0 ${
                           currentTab === 'settings'
                             ? 'text-white'
                             : 'text-current opacity-80 group-hover:opacity-100'
                         }`}
                       />
-                      <span className="truncate text-[11px]">System Settings</span>
+                      <span className="truncate text-xs">System Settings</span>
                     </div>
                     {currentTab === 'settings' && (
-                      <Check className="w-3 h-3 text-white stroke-[2.5] shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-white stroke-[2.5] shrink-0" />
                     )}
                   </button>
 
                   {/* Log Out Option */}
-                  <div className="pt-0.5 border-t border-slate-100 dark:border-purple-800/40">
+                  <div className="pt-1 border-t border-slate-100 dark:border-purple-800/40">
                     <button
                       type="button"
                       onClick={() => {
                         setShowUserDropdown(false);
                         onLogout();
                       }}
-                      className="w-full flex items-center gap-2 px-2 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
                     >
-                      <LogOut className="w-3 h-3 stroke-[2.2] shrink-0" />
-                      <span className="truncate text-[11px]">Log Out / Switch</span>
+                      <LogOut className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
+                      <span className="truncate text-xs">Log Out / Switch</span>
                     </button>
                   </div>
                 </motion.div>

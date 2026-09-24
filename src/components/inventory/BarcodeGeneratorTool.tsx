@@ -30,6 +30,7 @@ import {
   generateEan13Barcode,
 } from '../../utils/barcode.ts';
 import { playAudioFeedback } from '../../utils/audio.ts';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 export type LabelFormatType = 'roll_50x30' | 'roll_60x40' | 'a4_sheet';
 
@@ -59,6 +60,10 @@ export const BarcodeGeneratorTool: React.FC<BarcodeGeneratorToolProps> = ({
   const [activeTab, setActiveTab] = useState<'catalog' | 'custom'>(
     initialSelectedProduct ? 'catalog' : 'catalog'
   );
+  const { containerRef: barcodeTabContainerRef } = useScrollActiveTab<HTMLDivElement>(activeTab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
 
   // Label Formats
   const [labelFormat, setLabelFormat] = useState<LabelFormatType>('roll_50x30');
@@ -439,12 +444,15 @@ export const BarcodeGeneratorTool: React.FC<BarcodeGeneratorToolProps> = ({
         {/* MODE TABS & SUMMARY BAR */}
         <div className="px-6 py-2.5 bg-slate-100 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div 
+            ref={barcodeTabContainerRef}
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             className="flex items-center space-x-1 border-b border-slate-200/80 dark:border-purple-900/50 overflow-x-auto no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden"
           >
             <button
               type="button"
+              id="barcode-tab-catalog"
               data-active={activeTab === 'catalog'}
+              data-tab="catalog"
               onClick={() => setActiveTab('catalog')}
               className={`tab-underline-link relative flex items-center space-x-2 px-3.5 py-2.5 font-semibold text-xs transition-colors duration-300 cursor-pointer whitespace-nowrap ${
                 activeTab === 'catalog'
@@ -463,11 +471,20 @@ export const BarcodeGeneratorTool: React.FC<BarcodeGeneratorToolProps> = ({
               >
                 {products.length}
               </span>
+              {activeTab === 'catalog' && (
+                <motion.div
+                  layoutId="barcodeActiveUnderline"
+                  className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                />
+              )}
             </button>
 
             <button
               type="button"
+              id="barcode-tab-custom"
               data-active={activeTab === 'custom'}
+              data-tab="custom"
               onClick={() => setActiveTab('custom')}
               className={`tab-underline-link relative flex items-center space-x-2 px-3.5 py-2.5 font-semibold text-xs transition-colors duration-300 cursor-pointer whitespace-nowrap ${
                 activeTab === 'custom'
@@ -477,6 +494,13 @@ export const BarcodeGeneratorTool: React.FC<BarcodeGeneratorToolProps> = ({
             >
               <Sparkles className={`w-3.5 h-3.5 transition-colors duration-200 ${activeTab === 'custom' ? 'text-purple-600 dark:text-purple-400' : 'text-amber-500'}`} />
               <span>Custom SKU Barcode Generator</span>
+              {activeTab === 'custom' && (
+                <motion.div
+                  layoutId="barcodeActiveUnderline"
+                  className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                />
+              )}
             </button>
           </div>
 

@@ -35,6 +35,7 @@ import { SupplierReturnModal } from './SupplierReturnModal.tsx';
 import { PurchaseReturnDetailsModal } from './PurchaseReturnDetailsModal.tsx';
 import { SupplierPaymentModal } from '../suppliers/SupplierPaymentModal.tsx';
 import { StatCard, triggerStatRecount } from '../common/StatCard.tsx';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 interface PurchaseManagementProps {
   currentUser: any;
@@ -71,6 +72,10 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
 
   // Tab View: Purchases (Inward) vs Supplier Returns & Debit Notes (Defective Cartons)
   const [activeTab, setActiveTab] = useState<'purchases' | 'returns'>('purchases');
+  const { containerRef: purchaseTabContainerRef } = useScrollActiveTab<HTMLDivElement>(activeTab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
   const [purchaseReturns, setPurchaseReturns] = useState<any[]>([]);
   const [isLoadingReturns, setIsLoadingReturns] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -929,14 +934,17 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
         transition={{ duration: 0.3, delay: 0.25 }}
         className="app-card p-4 flex flex-wrap items-center justify-between gap-3 text-xs transition-colors dark:bg-gradient-to-r dark:from-purple-900 dark:via-indigo-950 dark:to-slate-900 dark:border-purple-800/80 dark:text-white"
       >
-        {/* Left: View Tabs - Underline Navigation with Centered 500ms Animated Transition */}
+        {/* Left: View Tabs - Responsive Scrollable Underline Navigation */}
         <div 
+          ref={purchaseTabContainerRef}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-0 no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden border-b border-slate-200/80 dark:border-purple-900/50"
         >
           <button
             type="button"
+            id="purchases-tab-purchases"
             data-active={activeTab === 'purchases'}
+            data-tab="purchases"
             onClick={() => setActiveTab('purchases')}
             className={`tab-underline-link relative px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-colors duration-300 cursor-pointer flex items-center space-x-2 shrink-0 whitespace-nowrap ${
               activeTab === 'purchases'
@@ -955,11 +963,20 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
             >
               {purchases.length}
             </span>
+            {activeTab === 'purchases' && (
+              <motion.div
+                layoutId="purchasesActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
 
           <button
             type="button"
+            id="purchases-tab-returns"
             data-active={activeTab === 'returns'}
+            data-tab="returns"
             onClick={() => setActiveTab('returns')}
             className={`tab-underline-link relative px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-colors duration-300 cursor-pointer flex items-center space-x-2 shrink-0 whitespace-nowrap ${
               activeTab === 'returns'
@@ -978,6 +995,13 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
             >
               {purchaseReturns.length}
             </span>
+            {activeTab === 'returns' && (
+              <motion.div
+                layoutId="purchasesActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
         </div>
 

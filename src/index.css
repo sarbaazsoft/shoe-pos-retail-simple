@@ -2295,7 +2295,7 @@ aside {
   scrollbar-color: transparent transparent !important;
 }
 
-/* Tab Menu Underline Transitions with Centered ::after pseudo-element */
+/* Tab Menu Underline Transitions */
 .tab-underline-link {
   position: relative;
   transition: color 300ms ease;
@@ -2318,11 +2318,12 @@ aside {
   opacity: 0;
 }
 
-.tab-underline-link:hover::after,
-.tab-underline-link:focus::after,
-.tab-underline-link:focus-visible::after {
-  width: 50% !important;
-  opacity: 0.85 !important;
+/* Hover underline animation from center removed per user request */
+.tab-underline-link:not(.active):not([data-active="true"]):hover::after,
+.tab-underline-link:not(.active):not([data-active="true"]):focus::after,
+.tab-underline-link:not(.active):not([data-active="true"]):focus-visible::after {
+  width: 0% !important;
+  opacity: 0 !important;
 }
 
 .tab-underline-link.active::after,
@@ -2330,5 +2331,24 @@ aside {
   width: 100% !important;
   opacity: 1 !important;
 }
+
+/* ========================================================================= */
+/* RESPONSIVE HORIZONTAL TAB MENU SCROLLING & ACTIVE TAB VISIBILITY          */
+/* ========================================================================= */
+.tab-scroll-container,
+[data-tab-container="true"],
+.tab-scrollbar-hidden,
+div:has(> .tab-underline-link) {
+  overflow-x: auto !important;
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain;
+}
+
+.tab-underline-link {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
 
 

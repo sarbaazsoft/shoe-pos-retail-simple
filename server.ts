@@ -117,6 +117,93 @@ const healthHandler = async (_req: any, res: any) => {
 app.get('/api/health', healthHandler);
 app.get('/health', healthHandler);
 
+// Dynamic Web App Manifest serving configured storeName + By SarbaazSoft
+const manifestHandler = async (req: express.Request, res: express.Response) => {
+  let storeName = (req.query.store as string) || '';
+  if (!storeName) {
+    try {
+      const result = await pgClient.query('SELECT name, company_name FROM company_settings LIMIT 1');
+      if (result.rows && result.rows.length > 0) {
+        storeName = result.rows[0].name || result.rows[0].company_name || 'TJ Shoes';
+      }
+    } catch (_) {}
+  }
+  if (!storeName) storeName = 'TJ Shoes';
+
+  const pwaName = `${storeName} By SarbaazSoft`;
+  const pwaShortName = storeName.length > 12 ? storeName.slice(0, 12) : storeName;
+
+  const manifest = {
+    id: '/',
+    name: pwaName,
+    short_name: pwaShortName,
+    description: `${storeName} - Professional Shoe Shop POS Terminal, Inventory, Barcode Scanner, and Purchasing System By SarbaazSoft.`,
+    theme_color: '#2563EB',
+    background_color: '#ffffff',
+    display: 'standalone',
+    display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
+    orientation: 'any',
+    start_url: '/',
+    scope: '/',
+    categories: ['business', 'productivity', 'shopping'],
+    icons: [
+      {
+        src: '/pwa-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/pwa-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/pwa-maskable-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icon.svg',
+        sizes: '512x512',
+        type: 'image/svg+xml',
+        purpose: 'any',
+      },
+    ],
+    shortcuts: [
+      {
+        name: 'POS Terminal',
+        short_name: 'POS',
+        description: 'Open Point of Sale checkout counter',
+        url: '/?tab=pos',
+        icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }],
+      },
+      {
+        name: 'Shoe Catalog',
+        short_name: 'Catalog',
+        description: 'View and manage shoe inventory',
+        url: '/?tab=inventory',
+        icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }],
+      },
+      {
+        name: 'Sales Reports',
+        short_name: 'Reports',
+        description: 'Financial ledger & analytics',
+        url: '/?tab=reports',
+        icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }],
+      },
+    ],
+  };
+
+  res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  return res.json(manifest);
+};
+
+app.get(['/manifest.webmanifest', '/manifest.json'], manifestHandler);
+
 // Register install routes first so they are always accessible
 app.use('/api/install', installRoutes);
 app.use('/install', installRoutes);

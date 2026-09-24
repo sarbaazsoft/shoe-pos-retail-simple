@@ -22,6 +22,7 @@ import { InvoicePrintModal } from '../pos/InvoicePrintModal.tsx';
 import { FinancialSummaryPrintModal } from './FinancialSummaryPrintModal.tsx';
 import { formatStockPrice } from '../../utils/priceFormat.ts';
 import { StatCard, triggerStatRecount } from '../common/StatCard.tsx';
+import { useScrollActiveTab } from '../../hooks/useScrollActiveTab.ts';
 
 interface ReportsDashboardProps {
   currentUser: any;
@@ -35,6 +36,11 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
   companySettings,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  const { containerRef: reportsTabContainerRef } = useScrollActiveTab<HTMLDivElement>(activeTab, {
+    padding: 16,
+    behavior: 'smooth',
+  });
   const [dashboardData, setDashboardData] = useState<any | null>(null);
   const [topSelling, setTopSelling] = useState<any[]>([]);
   const [salesHistory, setSalesHistory] = useState<any[]>([]);
@@ -372,14 +378,17 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
         transition={{ duration: 0.3, delay: 0.25 }}
         className="app-card p-4 flex flex-wrap items-center justify-between gap-3 text-xs transition-colors dark:bg-gradient-to-r dark:from-purple-900 dark:via-indigo-950 dark:to-slate-900 dark:border-purple-800/80 dark:text-white"
       >
-        {/* Tab Buttons - Underline Navigation with Centered 500ms Animated Transition */}
+        {/* Tab Buttons - Responsive Scrollable Underline Navigation */}
         <div 
+          ref={reportsTabContainerRef}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-0 no-scrollbar scrollbar-none tab-scrollbar-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:hidden [&::-webkit-scrollbar-track]:hidden border-b border-slate-200/80 dark:border-purple-900/50"
         >
           <button
+            id="reports-tab-overview"
             onClick={() => setActiveTab('overview')}
             data-active={activeTab === 'overview'}
+            data-tab="overview"
             className={`tab-underline-link relative inline-flex items-center gap-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-colors duration-300 cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'overview'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
@@ -388,11 +397,20 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
           >
             <LayoutDashboard className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'overview' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
             <span>Overview</span>
+            {activeTab === 'overview' && (
+              <motion.div
+                layoutId="reportsActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
 
           <button
+            id="reports-tab-sales-ledger"
             onClick={() => setActiveTab('sales_ledger')}
             data-active={activeTab === 'sales_ledger'}
+            data-tab="sales_ledger"
             className={`tab-underline-link relative inline-flex items-center gap-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-colors duration-300 cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'sales_ledger'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
@@ -408,11 +426,20 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
             }`}>
               {salesHistory.length}
             </span>
+            {activeTab === 'sales_ledger' && (
+              <motion.div
+                layoutId="reportsActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
 
           <button
+            id="reports-tab-profit-loss"
             onClick={() => setActiveTab('profit_loss')}
             data-active={activeTab === 'profit_loss'}
+            data-tab="profit_loss"
             className={`tab-underline-link relative inline-flex items-center gap-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-colors duration-300 cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'profit_loss'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
@@ -421,11 +448,20 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
           >
             <BarChart3 className={`w-4 h-4 transition-colors duration-200 ${activeTab === 'profit_loss' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
             <span>Profit &amp; Loss (P&amp;L)</span>
+            {activeTab === 'profit_loss' && (
+              <motion.div
+                layoutId="reportsActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
+            )}
           </button>
 
           <button
+            id="reports-tab-stock-alerts"
             onClick={() => setActiveTab('stock_alerts')}
             data-active={activeTab === 'stock_alerts'}
+            data-tab="stock_alerts"
             className={`tab-underline-link relative inline-flex items-center gap-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-colors duration-300 cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'stock_alerts'
                 ? 'active text-purple-600 dark:text-purple-400 font-bold'
@@ -442,6 +478,13 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
               }`}>
                 {lowStockCount}
               </span>
+            )}
+            {activeTab === 'stock_alerts' && (
+              <motion.div
+                layoutId="reportsActiveUnderline"
+                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none z-10"
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              />
             )}
           </button>
         </div>

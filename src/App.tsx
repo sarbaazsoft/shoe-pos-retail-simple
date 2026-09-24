@@ -80,14 +80,32 @@ export default function App() {
     companySettings?.company_name ||
     companySettings?.companyName ||
     cachedStoreName ||
-    'Shoe Shop POS & Inventory';
+    'TJ Shoes';
 
-  // Keep document title synced with the configured store name
+  const pwaAppName = `${effectiveStoreName} By SarbaazSoft`;
+
+  // Keep document title and PWA installation meta synced with storeName + By SarbaazSoft
   useEffect(() => {
-    if (effectiveStoreName) {
-      document.title = effectiveStoreName;
+    if (pwaAppName) {
+      document.title = pwaAppName;
+
+      // Update mobile web app and PWA titles
+      const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (appleTitle) {
+        appleTitle.setAttribute('content', pwaAppName);
+      }
+      const appNameMeta = document.querySelector('meta[name="application-name"]');
+      if (appNameMeta) {
+        appNameMeta.setAttribute('content', pwaAppName);
+      }
+
+      // Update PWA manifest link with store name param to prompt browser to load updated manifest
+      const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+      if (manifestLink) {
+        manifestLink.setAttribute('href', `/manifest.webmanifest?store=${encodeURIComponent(effectiveStoreName)}`);
+      }
     }
-  }, [effectiveStoreName]);
+  }, [pwaAppName, effectiveStoreName]);
 
   // Initialize Auth & Settings
   useEffect(() => {
@@ -617,6 +635,7 @@ export default function App() {
           isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
           currentUser={currentUser}
+          storeName={effectiveStoreName}
           onUserUpdated={(updatedUser) => {
             setCurrentUser(updatedUser);
           }}
