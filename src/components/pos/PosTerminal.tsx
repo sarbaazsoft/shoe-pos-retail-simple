@@ -1167,17 +1167,18 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
                 type="submit"
                 id="pos-scanner-submit-btn"
                 onMouseDown={(e) => e.preventDefault()}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 active:from-purple-800 active:to-indigo-800 dark:from-purple-600 dark:to-indigo-600 text-white font-bold text-sm rounded-xl border border-purple-400/40 dark:border-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_18px_rgba(147,51,234,0.35)] transition-all flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
+                style={{ color: '#ffffff' }}
+                className="btn-pure-white px-6 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 active:from-purple-800 active:to-indigo-800 dark:from-purple-600 dark:to-indigo-600 !text-white text-white font-bold text-sm rounded-xl border border-purple-400/40 dark:border-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_18px_rgba(147,51,234,0.35)] transition-all flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
               >
                 {inputMode === 'SCANNER' ? (
                   <>
-                    <Barcode className="w-4 h-4" />
-                    <span>Add SKU (Enter)</span>
+                    <Barcode className="w-4 h-4 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+                    <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Add SKU (Enter)</span>
                   </>
                 ) : (
                   <>
-                    <Search className="w-4 h-4" />
-                    <span>Lookup</span>
+                    <Search className="w-4 h-4 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+                    <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Lookup</span>
                   </>
                 )}
               </button>

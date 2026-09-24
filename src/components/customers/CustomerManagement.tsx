@@ -181,10 +181,11 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({ companyS
         <div className="flex items-center space-x-2.5">
           <button
             onClick={handleOpenAddModal}
-            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 dark:from-purple-600 dark:to-indigo-600 text-white border border-purple-400/40 dark:border-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)] font-bold px-4 py-2.5 rounded-xl text-xs flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
+            style={{ color: '#ffffff' }}
+            className="btn-pure-white customer-btn bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 dark:from-purple-600 dark:to-indigo-600 !text-white text-white border border-purple-400/40 dark:border-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)] font-bold px-4 py-2.5 rounded-xl text-xs flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add New Customer</span>
+            <Plus className="w-4 h-4 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+            <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Add New Customer</span>
           </button>
         </div>
       </motion.div>
@@ -275,9 +276,10 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({ companyS
           )}
           <button
             onClick={loadCustomers}
-            className="btn-primary absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer"
+            style={{ color: '#ffffff' }}
+            className="btn-primary btn-pure-white customer-btn !text-white text-white absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer"
           >
-            Search
+            <span className="!text-white font-semibold text-white" style={{ color: '#ffffff' }}>Search</span>
           </button>
         </div>
 
@@ -365,10 +367,11 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({ companyS
           </div>
           <button
             onClick={handleOpenAddModal}
-            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 dark:from-purple-600 dark:to-indigo-600 text-white border border-purple-400/40 dark:border-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)] font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
+            style={{ color: '#ffffff' }}
+            className="btn-pure-white customer-btn bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 dark:from-purple-600 dark:to-indigo-600 !text-white text-white border border-purple-400/40 dark:border-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)] font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 transition-all cursor-pointer active:scale-95"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add New Customer</span>
+            <Plus className="w-4 h-4 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+            <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Add New Customer</span>
           </button>
         </div>
       ) : viewMode === 'table' ? (
@@ -594,9 +597,12 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({ companyS
                 <button
                   onClick={() => handleDeleteCustomer(deletingCustomerId)}
                   disabled={isDeleting}
-                  className="btn-danger px-4 py-2 text-xs font-bold cursor-pointer"
+                  style={{ color: '#ffffff' }}
+                  className="btn-danger btn-pure-white customer-btn !text-white text-white px-4 py-2 text-xs font-bold cursor-pointer"
                 >
-                  {isDeleting ? 'Deleting...' : 'Delete Customer'}
+                  <span className="!text-white text-white font-bold" style={{ color: '#ffffff' }}>
+                    {isDeleting ? 'Deleting...' : 'Delete Customer'}
+                  </span>
                 </button>
               </div>
             </motion.div>

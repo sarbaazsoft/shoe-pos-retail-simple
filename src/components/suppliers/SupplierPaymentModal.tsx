@@ -355,14 +355,15 @@ export const SupplierPaymentModal: React.FC<SupplierPaymentModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                  style={{ color: '#ffffff' }}
+                  className="btn-pure-white supplier-btn inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 !text-white text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition active:scale-95 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? (
-                    <span>Recording Payment...</span>
+                    <span className="!text-white text-white" style={{ color: '#ffffff' }}>Recording Payment...</span>
                   ) : (
                     <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirm &amp; Record Payment</span>
+                      <CheckCircle2 className="w-4 h-4 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+                      <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Confirm &amp; Record Payment</span>
                     </>
                   )}
                 </button>

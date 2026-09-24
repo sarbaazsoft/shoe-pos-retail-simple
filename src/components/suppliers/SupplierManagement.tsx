@@ -242,11 +242,12 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
                 setPaymentModalSupplier(supWithBalance);
                 setIsPaymentModalOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/25 active:scale-95 transition cursor-pointer"
+              style={{ color: '#ffffff' }}
+              className="btn-pure-white supplier-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 !text-white text-white shadow-md shadow-emerald-600/25 active:scale-95 transition cursor-pointer"
               title="Record payment voucher to supplier"
             >
-              <CreditCard className="w-4 h-4 stroke-[2.2]" />
-              <span>Record Payment</span>
+              <CreditCard className="w-4 h-4 stroke-[2.2] !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+              <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Record Payment</span>
             </button>
           )}
 
@@ -276,10 +277,11 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
 
           <button
             onClick={handleOpenAddModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white rounded-xl text-xs font-bold border border-purple-400/40 shadow-md shadow-purple-600/25 dark:from-purple-600 dark:to-indigo-600 dark:hover:from-purple-500 dark:hover:to-indigo-500 dark:border-purple-400/50 dark:shadow-[0_0_18px_rgba(147,51,234,0.35)] transition-all cursor-pointer active:scale-95"
+            style={{ color: '#ffffff' }}
+            className="btn-pure-white supplier-btn inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 !text-white text-white rounded-xl text-xs font-bold border border-purple-400/40 shadow-md shadow-purple-600/25 dark:from-purple-600 dark:to-indigo-600 dark:hover:from-purple-500 dark:hover:to-indigo-500 dark:border-purple-400/50 dark:shadow-[0_0_18px_rgba(147,51,234,0.35)] transition-all cursor-pointer active:scale-95"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add New Supplier</span>
+            <Plus className="w-4 h-4 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+            <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Add New Supplier</span>
           </button>
         </div>
       </motion.div>
@@ -358,9 +360,10 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
           />
           <button
             type="submit"
-            className="absolute right-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white border border-purple-400/40 shadow-sm shadow-purple-600/25 dark:from-purple-600 dark:to-indigo-600 dark:border-purple-400/50 transition cursor-pointer active:scale-95"
+            style={{ color: '#ffffff' }}
+            className="btn-pure-white supplier-btn absolute right-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 !text-white text-white border border-purple-400/40 shadow-sm shadow-purple-600/25 dark:from-purple-600 dark:to-indigo-600 dark:border-purple-400/50 transition cursor-pointer active:scale-95"
           >
-            Search
+            <span className="!text-white font-semibold text-white" style={{ color: '#ffffff' }}>Search</span>
           </button>
         </form>
 
@@ -741,9 +744,12 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white border border-purple-400/40 shadow-md shadow-purple-600/25 dark:from-purple-600 dark:to-indigo-600 dark:hover:from-purple-500 dark:hover:to-indigo-500 dark:border-purple-400/50 transition cursor-pointer active:scale-95"
+                  style={{ color: '#ffffff' }}
+                  className="btn-pure-white supplier-btn px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 !text-white text-white border border-purple-400/40 shadow-md shadow-purple-600/25 dark:from-purple-600 dark:to-indigo-600 dark:hover:from-purple-500 dark:hover:to-indigo-500 dark:border-purple-400/50 transition cursor-pointer active:scale-95"
                 >
-                  {isSubmitting ? 'Saving...' : editingSupplier ? 'Update Supplier' : 'Create Supplier'}
+                  <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>
+                    {isSubmitting ? 'Saving...' : editingSupplier ? 'Update Supplier' : 'Create Supplier'}
+                  </span>
                 </button>
               </div>
             </form>
@@ -866,10 +872,11 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
                       setPaymentModalSupplier(selectedSupplier);
                       setIsPaymentModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer transition text-xs shadow-md shadow-emerald-600/20 active:scale-95"
+                    style={{ color: '#ffffff' }}
+                    className="btn-pure-white supplier-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 !text-white text-white font-bold cursor-pointer transition text-xs shadow-md shadow-emerald-600/20 active:scale-95"
                   >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    <span>Record Payment</span>
+                    <CreditCard className="w-3.5 h-3.5 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+                    <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>Record Payment</span>
                   </button>
 
                   <button
@@ -877,10 +884,11 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
                       setLedgerModalSupplierId(selectedSupplier.id);
                       setIsLedgerModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold cursor-pointer transition text-xs shadow-md shadow-purple-600/20 active:scale-95"
+                    style={{ color: '#ffffff' }}
+                    className="btn-pure-white supplier-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 !text-white text-white font-bold cursor-pointer transition text-xs shadow-md shadow-purple-600/20 active:scale-95"
                   >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>View Ledger</span>
+                    <FileText className="w-3.5 h-3.5 !text-white" style={{ color: '#ffffff', stroke: '#ffffff' }} />
+                    <span className="!text-white font-bold text-white" style={{ color: '#ffffff' }}>View Ledger</span>
                   </button>
 
                   <button
