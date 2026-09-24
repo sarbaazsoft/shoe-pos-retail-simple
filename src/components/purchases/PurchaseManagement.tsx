@@ -241,7 +241,12 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const isRefreshingPurchasesRef = useRef(false);
+  const isRefreshingReturnsRef = useRef(false);
+
   const loadPurchases = async () => {
+    if (isRefreshingPurchasesRef.current) return;
+    isRefreshingPurchasesRef.current = true;
     setIsLoading(true);
     try {
       const res = await api.purchases.list({ search: searchTerm.trim() || undefined });
@@ -249,12 +254,15 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
     } catch (e) {
       console.error('Failed to load purchases:', e);
     } finally {
+      isRefreshingPurchasesRef.current = false;
       setIsLoading(false);
       triggerStatRecount();
     }
   };
 
   const loadPurchaseReturns = async () => {
+    if (isRefreshingReturnsRef.current) return;
+    isRefreshingReturnsRef.current = true;
     setIsLoadingReturns(true);
     try {
       const res = await api.purchaseReturns.list({ search: searchTerm.trim() || undefined });
@@ -262,8 +270,13 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
     } catch (e) {
       console.error('Failed to load purchase returns:', e);
     } finally {
+      isRefreshingReturnsRef.current = false;
       setIsLoadingReturns(false);
     }
+  };
+
+  const handleRefreshAll = async () => {
+    await Promise.all([loadPurchases(), loadPurchaseReturns()]);
   };
 
   const handleViewReturnDetails = async (returnId: number) => {
@@ -826,14 +839,10 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              loadPurchases();
-              loadPurchaseReturns();
-              triggerStatRecount();
-            }}
+            onClick={handleRefreshAll}
             disabled={isLoading || isLoadingReturns}
-            title="Refresh purchases, returns & recount metrics"
-            className="bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1.5 transition cursor-pointer active:scale-95 shadow-2xs"
+            title={isLoading || isLoadingReturns ? "Refreshing purchases & returns..." : "Refresh purchases, returns & recount metrics"}
+            className="bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1.5 transition cursor-pointer active:scale-95 shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading || isLoadingReturns ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-blue-600 dark:text-purple-300'}`} />
             <span>Refresh</span>
@@ -1003,6 +1012,9 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
               />
             )}
           </button>
+
+          {/* Scroll End Buffer Spacer: Ensures the last tab is 100% visible and never clipped */}
+          <div className="tab-end-spacer shrink-0 w-8 sm:w-10 h-1 pointer-events-none self-stretch" aria-hidden="true" role="presentation" />
         </div>
 
         {/* Right: Search Input & Refresh button */}
@@ -1048,9 +1060,9 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
               if (activeTab === 'purchases') loadPurchases();
               else loadPurchaseReturns();
             }}
-            title="Refresh list"
+            title={isLoading || isLoadingReturns ? "Refreshing list..." : "Refresh list"}
             disabled={isLoading || isLoadingReturns}
-            className="px-3.5 py-2 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl transition cursor-pointer disabled:opacity-50 shrink-0 flex items-center space-x-1.5"
+            className="px-3.5 py-2 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none shrink-0 flex items-center space-x-1.5"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-blue-600 dark:text-purple-300 ${isLoading || isLoadingReturns ? 'animate-spin' : ''}`} />
             <span>Refresh</span>

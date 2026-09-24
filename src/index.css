@@ -2338,16 +2338,43 @@ aside {
 .tab-scroll-container,
 [data-tab-container="true"],
 .tab-scrollbar-hidden,
-div:has(> .tab-underline-link) {
+div:has(> .tab-underline-link),
+div:has(> button[data-tab]) {
   overflow-x: auto !important;
+  overflow-y: hidden !important;
   scroll-behavior: smooth !important;
   -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior-x: contain;
+  overscroll-behavior-x: contain !important;
+  scroll-padding-left: 20px !important;
+  scroll-padding-right: 36px !important;
+  scroll-padding-inline: 20px 36px !important;
 }
 
 .tab-underline-link {
   flex-shrink: 0 !important;
   white-space: nowrap !important;
+  scroll-margin-left: 20px;
+  scroll-margin-right: 36px;
+  scroll-margin-inline: 20px 36px;
+}
+
+/* Ensure last child has comfortable end spacing */
+.tab-end-spacer {
+  flex-shrink: 0 !important;
+  min-width: 36px !important;
+  width: 36px !important;
+  height: 1px !important;
+  pointer-events: none !important;
+  display: block !important;
+}
+
+/* Suppress CSS pseudo underline when Framer Motion layoutId underline is active */
+.tab-underline-link:has(> [class*="bottom-0"])::after,
+.tab-underline-link:has(> [data-projection-id])::after,
+.tab-underline-link:has(> div)::after {
+  display: none !important;
+  opacity: 0 !important;
+  width: 0% !important;
 }
 
 

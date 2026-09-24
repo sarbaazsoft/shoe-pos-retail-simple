@@ -215,11 +215,15 @@ export const InstallWizard: React.FC<InstallWizardProps> = ({
   const [unlockSuccess, setUnlockSuccess] = useState<string | null>(null);
 
   // 1. Initial Diagnostics & Lock Check
+  const isCheckingStatusRef = useRef(false);
+
   useEffect(() => {
     checkInstallStatus();
   }, []);
 
   const checkInstallStatus = async (forceNoPreload = false) => {
+    if (isCheckingStatusRef.current) return;
+    isCheckingStatusRef.current = true;
     setCheckingStatus(true);
     setApiError(null);
     try {
@@ -240,6 +244,7 @@ export const InstallWizard: React.FC<InstallWizardProps> = ({
       console.warn('Install status check notice:', err);
       setApiError(err.message || 'Could not verify database connection status.');
     } finally {
+      isCheckingStatusRef.current = false;
       setCheckingStatus(false);
     }
   };
@@ -903,9 +908,9 @@ export const InstallWizard: React.FC<InstallWizardProps> = ({
                   </span>
                   <button
                     type="button"
-                    onClick={checkInstallStatus}
+                    onClick={() => checkInstallStatus()}
                     disabled={checkingStatus}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors"
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${checkingStatus ? 'animate-spin' : ''}`} />
                     <span>Re-check</span>

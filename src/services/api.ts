@@ -14,54 +14,79 @@ export function removeAuthToken() {
   localStorage.removeItem('pos_auth_token');
 }
 
+// In-flight request deduplication map for idempotent GET operations
+const inFlightGetRequests = new Map<string, Promise<any>>();
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
+  const method = (options.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // If this is a GET request and an identical request is already in-flight, return the existing promise
+  if (isGet && inFlightGetRequests.has(endpoint)) {
+    return inFlightGetRequests.get(endpoint) as Promise<T>;
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const executeRequest = async (): Promise<T> => {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
 
-  let data: any = {};
-  const text = await response.text().catch(() => '');
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { error: text.length > 200 ? text.slice(0, 200) : text };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-  }
 
-  if (!response.ok) {
-    const errorMsg = data.error || data.message || `Server Error (${response.status})`;
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-    // Automatically clean up stale or expired tokens on 401 unauthorized
-    if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register')) {
-      removeAuthToken();
+    let data: any = {};
+    const text = await response.text().catch(() => '');
+    if (text) {
       try {
-        localStorage.removeItem('pos_current_user');
-      } catch {}
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('auth:session-expired', {
-            detail: { message: errorMsg },
-          })
-        );
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text.length > 200 ? text.slice(0, 200) : text };
       }
     }
 
-    throw new Error(errorMsg);
+    if (!response.ok) {
+      const errorMsg = data.error || data.message || `Server Error (${response.status})`;
+
+      // Automatically clean up stale or expired tokens on 401 unauthorized
+      if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register')) {
+        removeAuthToken();
+        try {
+          localStorage.removeItem('pos_current_user');
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('auth:session-expired', {
+              detail: { message: errorMsg },
+            })
+          );
+        }
+      }
+
+      throw new Error(errorMsg);
+    }
+
+    return data as T;
+  };
+
+  if (isGet) {
+    const promise = executeRequest();
+    inFlightGetRequests.set(endpoint, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightGetRequests.delete(endpoint);
+    }
   }
 
-  return data as T;
+  return executeRequest();
 }
 
 export const api = {

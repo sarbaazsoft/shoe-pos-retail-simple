@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookOpen, Filter, ArrowUpRight, ArrowDownLeft, RotateCcw, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api.ts';
 
@@ -11,6 +11,9 @@ export const StockLedgerView: React.FC = () => {
 
   useEffect(() => {
     loadProducts();
+  }, []);
+
+  useEffect(() => {
     loadLedger();
   }, [selectedProduct, movementType]);
 
@@ -23,7 +26,11 @@ export const StockLedgerView: React.FC = () => {
     }
   };
 
+  const isRefreshingRef = useRef(false);
+
   const loadLedger = async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsLoading(true);
     try {
       const res = await api.inventory.ledger({
@@ -35,6 +42,7 @@ export const StockLedgerView: React.FC = () => {
     } catch (e) {
       console.error(e);
     } finally {
+      isRefreshingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -98,9 +106,11 @@ export const StockLedgerView: React.FC = () => {
         </div>
 
         <button
+          type="button"
           onClick={loadLedger}
           disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-2xs dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-semibold active:scale-[0.98] self-start sm:self-auto cursor-pointer transition disabled:opacity-50"
+          title={isLoading ? "Refreshing ledger..." : "Refresh Ledger"}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-2xs dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-semibold active:scale-[0.98] self-start sm:self-auto cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-blue-600 dark:text-purple-300 ${isLoading ? 'animate-spin' : ''}`} />
           <span>Refresh Ledger</span>

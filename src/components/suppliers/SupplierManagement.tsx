@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Building2,
@@ -82,11 +82,15 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
   const currencySymbol = companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
   const isAdmin = currentUser?.role === 'ADMIN';
 
+  const isRefreshingRef = useRef(false);
+
   useEffect(() => {
     loadSuppliers();
   }, []);
 
   const loadSuppliers = async (query?: string) => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsLoading(true);
     try {
       const res = await api.suppliers.list(query !== undefined ? query : searchTerm.trim() || undefined);
@@ -94,6 +98,7 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
     } catch (e) {
       console.error('Failed to load suppliers:', e);
     } finally {
+      isRefreshingRef.current = false;
       setIsLoading(false);
       triggerStatRecount();
     }
@@ -253,13 +258,10 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              loadSuppliers(searchTerm);
-              triggerStatRecount();
-            }}
+            onClick={() => loadSuppliers(searchTerm)}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-2xs dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] active:scale-[0.98] transition cursor-pointer"
-            title="Refresh suppliers & recount metrics"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-2xs dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] active:scale-[0.98] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+            title={isLoading ? "Refreshing suppliers..." : "Refresh suppliers & recount metrics"}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600 dark:text-purple-400' : ''}`} />
             <span>Refresh</span>

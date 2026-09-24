@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Users,
@@ -46,11 +46,15 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({ companyS
 
   const currencySymbol = companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
 
+  const isRefreshingRef = useRef(false);
+
   useEffect(() => {
     loadCustomers();
   }, []);
 
   const loadCustomers = async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsLoading(true);
     try {
       const res = await api.customers.list(searchTerm.trim() || undefined);
@@ -58,6 +62,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({ companyS
     } catch (e) {
       console.error('Failed to load customers:', e);
     } finally {
+      isRefreshingRef.current = false;
       setIsLoading(false);
       triggerStatRecount();
     }
@@ -309,13 +314,11 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({ companyS
 
           {/* Refresh Button */}
           <button
-            onClick={() => {
-              loadCustomers();
-              triggerStatRecount();
-            }}
+            type="button"
+            onClick={loadCustomers}
             disabled={isLoading}
-            title="Refresh List & recount metrics"
-            className="p-2 text-slate-600 dark:text-purple-200 hover:text-blue-600 dark:hover:text-white bg-slate-50 dark:bg-purple-500/20 hover:bg-slate-100 dark:hover:bg-purple-500/30 rounded-xl border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] transition cursor-pointer active:scale-95"
+            title={isLoading ? "Refreshing list..." : "Refresh List & recount metrics"}
+            className="p-2 text-slate-600 dark:text-purple-200 hover:text-blue-600 dark:hover:text-white bg-slate-50 dark:bg-purple-500/20 hover:bg-slate-100 dark:hover:bg-purple-500/30 rounded-xl border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] transition cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-blue-600 dark:text-purple-300'}`} />
           </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Store,
   Users,
@@ -143,6 +143,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [dropTablesOnUnlock, setDropTablesOnUnlock] = useState(false);
   const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Overall settings refresh state & guards
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  const isRefreshingAllRef = useRef(false);
+  const isRefreshingUsersRef = useRef(false);
+  const isRefreshingInstallRef = useRef(false);
+
   const isAdmin = currentUser?.role === 'ADMIN';
 
   useEffect(() => {
@@ -161,6 +167,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, [activeTab]);
 
   const loadInstallStatus = async () => {
+    if (isRefreshingInstallRef.current) return;
+    isRefreshingInstallRef.current = true;
     setIsLoadingInstallStatus(true);
     try {
       const res = await api.install.status();
@@ -168,6 +176,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } catch (e) {
       console.error(e);
     } finally {
+      isRefreshingInstallRef.current = false;
       setIsLoadingInstallStatus(false);
     }
   };
@@ -248,6 +257,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const loadUsers = async () => {
+    if (isRefreshingUsersRef.current) return;
+    isRefreshingUsersRef.current = true;
     setIsLoadingUsers(true);
     try {
       const res = await api.settings.getUsers();
@@ -255,7 +266,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } catch (e) {
       console.error(e);
     } finally {
+      isRefreshingUsersRef.current = false;
       setIsLoadingUsers(false);
+    }
+  };
+
+  const handleGlobalRefresh = async () => {
+    if (isRefreshingAllRef.current) return;
+    isRefreshingAllRef.current = true;
+    setIsRefreshingAll(true);
+    try {
+      const promises: Promise<any>[] = [Promise.resolve(onSettingsUpdated())];
+      if (isAdmin) {
+        promises.push(loadUsers(), loadInstallStatus());
+      }
+      await Promise.all(promises);
+    } catch (err) {
+      console.error('Settings refresh error:', err);
+    } finally {
+      isRefreshingAllRef.current = false;
+      setIsRefreshingAll(false);
     }
   };
 
@@ -383,18 +413,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              onSettingsUpdated();
-              if (isAdmin) {
-                loadUsers();
-                loadInstallStatus();
-              }
-            }}
-            className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
-            title="Reload settings from database"
+            onClick={handleGlobalRefresh}
+            disabled={isRefreshingAll}
+            className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5 shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+            title={isRefreshingAll ? "Reloading settings..." : "Reload settings from database"}
           >
-            <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-purple-300" />
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-blue-600 dark:text-purple-300 ${isRefreshingAll ? 'animate-spin' : ''}`} />
+            <span>{isRefreshingAll ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
       </motion.div>
@@ -537,6 +562,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </button>
         )}
+
+        {/* Scroll End Buffer Spacer: Ensures the last tab is 100% visible and never clipped or flush against right edge */}
+        <div className="tab-end-spacer shrink-0 w-8 sm:w-10 h-1 pointer-events-none self-stretch" aria-hidden="true" role="presentation" />
       </motion.div>
 
       {/* TAB 1: STORE & INVOICE SETTINGS */}
@@ -1174,9 +1202,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 type="button"
                 onClick={loadUsers}
-                className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center space-x-1.5 shadow-2xs"
+                disabled={isLoadingUsers}
+                title={isLoadingUsers ? "Refreshing users..." : "Refresh List"}
+                className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center space-x-1.5 shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-purple-300" />
+                <RefreshCw className={`w-3.5 h-3.5 text-blue-600 dark:text-purple-300 ${isLoadingUsers ? 'animate-spin' : ''}`} />
                 <span>Refresh List</span>
               </button>
             </div>
@@ -1475,7 +1505,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               type="button"
               onClick={loadInstallStatus}
               disabled={isLoadingInstallStatus}
-              className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              title={isLoadingInstallStatus ? "Refreshing status..." : "Refresh Status"}
+              className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-bold rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingInstallStatus ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-blue-600 dark:text-purple-300'}`} />
               <span>Refresh Status</span>

@@ -88,15 +88,20 @@ export const DataBackupRestore: React.FC<DataBackupRestoreProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sqlFileInputRef = useRef<HTMLInputElement>(null);
+  const isRefreshingStatsRef = useRef(false);
 
   useEffect(() => {
     loadStats();
   }, []);
 
   const loadStats = async () => {
+    if (isRefreshingStatsRef.current) return;
+    isRefreshingStatsRef.current = true;
+
     const token = getAuthToken();
     if (!token || !currentUser) {
       setIsLoadingStats(false);
+      isRefreshingStatsRef.current = false;
       return;
     }
 
@@ -112,6 +117,7 @@ export const DataBackupRestore: React.FC<DataBackupRestoreProps> = ({
         setStatsError(err.message || 'Failed to load database status');
       }
     } finally {
+      isRefreshingStatsRef.current = false;
       setIsLoadingStats(false);
     }
   };
@@ -371,7 +377,7 @@ export const DataBackupRestore: React.FC<DataBackupRestoreProps> = ({
           type="button"
           onClick={loadStats}
           disabled={isLoadingStats}
-          className="self-start sm:self-auto px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+          className="self-start sm:self-auto px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStats ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-blue-600 dark:text-purple-300'}`} />
           <span>Refresh Live Stats</span>

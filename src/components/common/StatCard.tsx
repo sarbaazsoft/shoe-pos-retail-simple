@@ -278,7 +278,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   if (layout === 'horizontal') {
     return (
       <motion.div
-        key={`${id || title}-${cardRefreshKey}`}
+        key={id || title}
         id={id}
         initial={{ opacity: 0.5, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -321,7 +321,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   // Vertical Bento Layout (Default: DashboardOverview, ProductManagement, Purchases, Reports)
   return (
     <motion.div
-      key={`${id || title}-${cardRefreshKey}`}
+      key={id || title}
       id={id}
       initial={{ opacity: 0.5, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}

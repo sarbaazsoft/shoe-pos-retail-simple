@@ -285,6 +285,9 @@ export const SupplierLedgerModal: React.FC<SupplierLedgerModalProps> = ({
                 )}
               </button>
             ))}
+
+            {/* Scroll End Buffer Spacer: Ensures the last tab is 100% visible and never clipped */}
+            <div className="tab-end-spacer shrink-0 w-8 sm:w-10 h-1 pointer-events-none self-stretch" aria-hidden="true" role="presentation" />
           </div>
 
           {/* Tab Content Table */}

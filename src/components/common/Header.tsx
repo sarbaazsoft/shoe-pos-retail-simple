@@ -154,8 +154,11 @@ export const Header: React.FC<HeaderProps> = ({
     }
   });
   const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
+  const isFetchingNotifsRef = useRef(false);
 
   const fetchLiveNotifications = async () => {
+    if (isFetchingNotifsRef.current) return;
+    isFetchingNotifsRef.current = true;
     try {
       setIsLoadingNotifs(true);
       const res = await api.notifications.list();
@@ -165,6 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
     } catch (err) {
       console.warn('Could not fetch real-time notifications:', err);
     } finally {
+      isFetchingNotifsRef.current = false;
       setIsLoadingNotifs(false);
     }
   };
@@ -471,7 +475,7 @@ export const Header: React.FC<HeaderProps> = ({
                         fetchLiveNotifications();
                       }}
                       disabled={isLoadingNotifs}
-                      className="p-1 rounded-md text-slate-400 hover:text-purple-600 dark:text-purple-200 dark:hover:text-white hover:bg-purple-50/40 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:border dark:border-purple-400/40 dark:shadow-[0_0_10px_rgba(147,51,234,0.2)] transition cursor-pointer"
+                      className="p-1 rounded-md text-slate-400 hover:text-purple-600 dark:text-purple-200 dark:hover:text-white hover:bg-purple-50/40 dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:border dark:border-purple-400/40 dark:shadow-[0_0_10px_rgba(147,51,234,0.2)] transition cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
                       title="Refresh notifications"
                       aria-label="Refresh notifications"
                     >

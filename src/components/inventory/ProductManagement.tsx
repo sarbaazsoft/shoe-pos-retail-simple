@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -73,6 +73,9 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
   useEffect(() => {
     loadFilterData();
+  }, []);
+
+  useEffect(() => {
     loadProducts();
   }, [selectedBrand, selectedCategory, lowStockFilter]);
 
@@ -98,7 +101,11 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
     }
   };
 
+  const isRefreshingRef = useRef(false);
+
   const loadProducts = async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsLoading(true);
     try {
       const res = await api.products.list({
@@ -111,6 +118,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
     } catch (err) {
       console.error('Failed to load products:', err);
     } finally {
+      isRefreshingRef.current = false;
       setIsLoading(false);
       triggerStatRecount();
     }
@@ -335,13 +343,10 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
         <button
           type="button"
-          onClick={() => {
-            loadProducts();
-            triggerStatRecount();
-          }}
+          onClick={loadProducts}
           disabled={isLoading}
-          className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl transition cursor-pointer active:scale-95"
-          title="Refresh inventory stats & records"
+          className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl transition cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+          title={isLoading ? "Refreshing inventory..." : "Refresh inventory stats & records"}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-blue-600 dark:text-purple-300'}`} />
           <span>Refresh</span>

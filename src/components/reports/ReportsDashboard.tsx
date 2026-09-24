@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   TrendingUp,
@@ -60,6 +60,9 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
 
   const currencySymbol = companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
 
+  const isRefreshingRef = useRef(false);
+  const isRefreshingPLRef = useRef(false);
+
   useEffect(() => {
     loadReports();
   }, []);
@@ -71,6 +74,8 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
   }, [activeTab, dateRange, customStartDate, customEndDate]);
 
   const loadReports = async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsLoading(true);
     try {
       const [dRes, topRes, sRes] = await Promise.all([
@@ -84,12 +89,15 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
     } catch (e) {
       console.error('Failed to load reports:', e);
     } finally {
+      isRefreshingRef.current = false;
       setIsLoading(false);
       triggerStatRecount();
     }
   };
 
   const loadProfitLoss = async () => {
+    if (isRefreshingPLRef.current) return;
+    isRefreshingPLRef.current = true;
     setIsLoadingPL(true);
     try {
       let startDate: string | undefined = undefined;
@@ -119,8 +127,17 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
     } catch (e) {
       console.error('Failed to load profit loss report:', e);
     } finally {
+      isRefreshingPLRef.current = false;
       setIsLoadingPL(false);
       triggerStatRecount();
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (activeTab === 'profit_loss') {
+      await Promise.all([loadReports(), loadProfitLoss()]);
+    } else {
+      await loadReports();
     }
   };
 
@@ -255,15 +272,13 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
 
         <div className="flex items-center space-x-2.5">
           <button
-            onClick={() => {
-              loadReports();
-              triggerStatRecount();
-            }}
-            disabled={isLoading}
-            className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl transition cursor-pointer text-xs flex items-center space-x-1.5 active:scale-95"
-            title="Refresh database records & recount metrics"
+            type="button"
+            onClick={handleRefresh}
+            disabled={isLoading || (activeTab === 'profit_loss' && isLoadingPL)}
+            className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] font-bold rounded-xl transition cursor-pointer text-xs flex items-center space-x-1.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+            title={isLoading || (activeTab === 'profit_loss' && isLoadingPL) ? "Refreshing database records..." : "Refresh database records & recount metrics"}
           >
-            <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-blue-600 dark:text-purple-300'}`} />
+            <RotateCw className={`w-3.5 h-3.5 ${isLoading || (activeTab === 'profit_loss' && isLoadingPL) ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-blue-600 dark:text-purple-300'}`} />
             <span>Refresh</span>
           </button>
 
@@ -487,6 +502,9 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
               />
             )}
           </button>
+
+          {/* Scroll End Buffer Spacer: Ensures the last tab is 100% visible and never clipped */}
+          <div className="tab-end-spacer shrink-0 w-8 sm:w-10 h-1 pointer-events-none self-stretch" aria-hidden="true" role="presentation" />
         </div>
 
         {/* Tab Context Search & Actions */}

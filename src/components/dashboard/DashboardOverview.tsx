@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShoppingCart,
   Boxes,
@@ -81,7 +81,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const currency =
     companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
 
+  const isRefreshingRef = useRef(false);
+
   const loadData = async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     try {
       setLoading(true);
       const res = await api.reports.getDashboard();
@@ -139,6 +143,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     } catch (err) {
       console.warn('Dashboard metrics fetch notice:', err);
     } finally {
+      isRefreshingRef.current = false;
       setLoading(false);
       triggerStatRecount();
     }
@@ -228,12 +233,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => {
-              loadData();
-              triggerStatRecount();
-            }}
-            title="Refresh metrics & recount stats"
-            className="p-1.5 rounded-xl bg-white hover:text-blue-600 border border-slate-200/90 shadow-2xs dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-slate-500 cursor-pointer transition active:scale-95"
+            onClick={loadData}
+            disabled={loading}
+            title={loading ? "Refreshing metrics..." : "Refresh metrics & recount stats"}
+            className="p-1.5 rounded-xl bg-white hover:text-blue-600 border border-slate-200/90 shadow-2xs dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:text-purple-200 dark:hover:text-white dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-slate-500 cursor-pointer transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600 dark:text-purple-300' : 'text-slate-500 dark:text-purple-300'}`} />
           </button>
