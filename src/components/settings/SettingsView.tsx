@@ -26,13 +26,18 @@ import {
   Eye,
   EyeOff,
   Unlock,
+  Plus,
+  UserPlus,
+  X,
+  KeyRound,
 } from 'lucide-react';
 import { api } from '../../services/api.ts';
 import { PrinterHardwareSettings } from './PrinterHardwareSettings.tsx';
 import { DataBackupRestore } from './DataBackupRestore.tsx';
 import { UserAvatar } from '../common/UserAvatar.tsx';
 import { BarcodeSvg } from '../common/BarcodeSvg.tsx';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { CreateStaffModal } from './CreateStaffModal.tsx';
 
 interface SettingsViewProps {
   currentUser: any;
@@ -117,6 +122,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Users Management
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [deleteUserError, setDeleteUserError] = useState<string | null>(null);
 
   // Server Installation Status & Lockdown
   const [installStatus, setInstallStatus] = useState<any | null>(null);
@@ -316,6 +325,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       loadUsers();
     } catch (err: any) {
       alert(err.message || 'Failed to update user role');
+    }
+  };
+
+  const handleOpenAddUserModal = () => {
+    setIsAddUserModalOpen(true);
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    setDeleteUserError(null);
+    try {
+      await api.settings.deleteUser(userToDelete.id);
+      setUserToDelete(null);
+      loadUsers();
+    } catch (err: any) {
+      setDeleteUserError(err.message || 'Failed to delete staff account.');
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -1081,18 +1109,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">Staff &amp; Cashier Authorizations</h3>
                 <p className="text-slate-500 dark:text-purple-200/70 text-xs mt-0.5">
-                  New cashiers register as PENDING and cannot log in until approved by the Shop Owner/Admin.
+                  Authorized Administrators can create and provision cashier or admin accounts directly, and manage active staff permissions.
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={loadUsers}
-              className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center space-x-1.5 shadow-2xs"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-purple-300" />
-              <span>Refresh List</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                id="create-staff-user-btn"
+                onClick={handleOpenAddUserModal}
+                className="btn-pure-white px-3.5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white font-bold rounded-xl text-xs cursor-pointer transition shadow-md shadow-purple-600/25 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)] border border-purple-400/40 flex items-center space-x-1.5"
+                style={{ color: '#ffffff' }}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>+ Create Cashier / Admin</span>
+              </button>
+              <button
+                type="button"
+                onClick={loadUsers}
+                className="px-3.5 py-2.5 bg-slate-100 dark:bg-purple-500/20 hover:bg-slate-200 dark:hover:bg-purple-500/30 text-slate-700 dark:text-purple-200 dark:hover:text-white border border-slate-200 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center space-x-1.5 shadow-2xs"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-purple-300" />
+                <span>Refresh List</span>
+              </button>
+            </div>
           </div>
 
           <div className="border border-slate-200 dark:border-purple-800/60 rounded-xl overflow-hidden shadow-2xs">
@@ -1164,23 +1204,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        {isPending ? (
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateUserStatus(u.id, 'APPROVED')}
-                            className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white border border-purple-400/40 dark:border-purple-400/50 px-3.5 py-1.5 font-bold rounded-lg cursor-pointer text-xs shadow-md shadow-purple-600/25 dark:shadow-[0_0_12px_rgba(147,51,234,0.3)] transition-all hover:scale-105 active:scale-95"
-                          >
-                            Approve Access
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateUserStatus(u.id, 'PENDING')}
-                            className="bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/60 px-3 py-1.5 font-semibold rounded-lg cursor-pointer text-xs transition-colors"
-                          >
-                            Suspend
-                          </button>
-                        )}
+                        <div className="flex items-center justify-center space-x-1.5">
+                          {isPending ? (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateUserStatus(u.id, 'APPROVED')}
+                              className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white border border-purple-400/40 dark:border-purple-400/50 px-3 py-1.5 font-bold rounded-lg cursor-pointer text-xs shadow-md shadow-purple-600/25 dark:shadow-[0_0_12px_rgba(147,51,234,0.3)] transition-all hover:scale-105 active:scale-95"
+                            >
+                              Approve
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateUserStatus(u.id, 'PENDING')}
+                              className="bg-slate-100 hover:bg-slate-200 dark:bg-purple-950/40 text-slate-700 dark:text-purple-200 hover:text-slate-900 border border-slate-200 dark:border-purple-800/60 px-3 py-1.5 font-semibold rounded-lg cursor-pointer text-xs transition-colors"
+                            >
+                              Suspend
+                            </button>
+                          )}
+
+                          {(() => {
+                            const isSelf =
+                              (currentUser?.id && u.id && Number(currentUser.id) === Number(u.id)) ||
+                              (currentUser?.email && u.email && currentUser.email.trim().toLowerCase() === u.email.trim().toLowerCase());
+
+                            return isSelf ? (
+                              <button
+                                type="button"
+                                disabled
+                                title="You cannot delete your own active logged-in administrator account"
+                                className="p-1.5 rounded-lg text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteUserError(null);
+                                  setUserToDelete(u);
+                                }}
+                                title={`Delete account for ${u.name}`}
+                                className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800/60 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            );
+                          })()}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1188,6 +1259,134 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* Add Staff / Cashier Modal */}
+          <AnimatePresence>
+            {isAddUserModalOpen && (
+              <CreateStaffModal
+                isOpen={isAddUserModalOpen}
+                onClose={() => setIsAddUserModalOpen(false)}
+                onUserCreated={loadUsers}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Delete Staff / Cashier / Admin Confirmation Modal */}
+          <AnimatePresence>
+            {userToDelete && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs overflow-y-auto"
+                onClick={() => !isDeletingUser && setUserToDelete(null)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="bg-white dark:bg-[#131B2E] rounded-2xl shadow-2xl border border-slate-200 dark:border-purple-800/80 w-full max-w-md overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="p-4 px-5 border-b border-rose-700/60 dark:border-rose-900/60 flex items-center justify-between bg-rose-600 dark:bg-gradient-to-r dark:from-rose-900 dark:via-rose-950 dark:to-slate-900 text-white">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </div>
+                      <h3 className="font-bold text-sm tracking-tight">Delete Staff Account</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => !isDeletingUser && setUserToDelete(null)}
+                      className="p-1 text-rose-200 hover:text-white rounded-lg transition cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-5 space-y-4 text-xs">
+                    {deleteUserError && (
+                      <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-700 dark:text-red-300 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                        <span>{deleteUserError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-purple-950/20 border border-slate-200 dark:border-purple-900/40 rounded-xl">
+                      <UserAvatar
+                        name={userToDelete.name}
+                        avatarUrl={userToDelete.avatarUrl || userToDelete.avatar_url}
+                        role={userToDelete.role}
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm truncate">
+                          {userToDelete.name}
+                        </h4>
+                        <p className="text-slate-500 dark:text-purple-200/70 font-mono text-[11px] truncate">
+                          {userToDelete.email}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          userToDelete.role === 'ADMIN'
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                        }`}
+                      >
+                        {userToDelete.role}
+                      </span>
+                    </div>
+
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Are you sure you want to permanently delete this account for{' '}
+                      <strong className="text-slate-900 dark:text-white font-bold">"{userToDelete.name}"</strong>?
+                      This user will immediately lose access to the system and POS register.
+                    </p>
+
+                    {userToDelete.role === 'ADMIN' && (
+                      <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <span>
+                          <strong>Administrator Account Notice:</strong> Ensure at least one other active Administrator account remains in the system to prevent administrative lockout.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-5 py-3.5 bg-slate-50 dark:bg-gradient-to-r dark:from-purple-900/90 dark:via-indigo-950/85 dark:to-slate-900 border-t border-slate-100 dark:border-purple-800/80 flex items-center justify-end space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setUserToDelete(null)}
+                      disabled={isDeletingUser}
+                      className="btn-secondary px-4 py-2 text-xs font-semibold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmDeleteUser}
+                      disabled={isDeletingUser}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white text-xs font-bold shadow-xs shadow-rose-500/25 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {isDeletingUser ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Deleting Account...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Confirm Delete</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

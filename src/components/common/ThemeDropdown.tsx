@@ -82,7 +82,7 @@ export const ThemeDropdown: React.FC<ThemeDropdownProps> = ({
         id={id}
         type="button"
         onClick={() => setOpen(!open)}
-        className={`h-8 sm:h-8.5 flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all duration-200 cursor-pointer border ${
+        className={`h-6 sm:h-6.5 flex items-center gap-1.5 px-2 py-0 rounded-md transition-all duration-200 cursor-pointer border ${
           open
             ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white border-purple-400/50 ring-2 ring-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_16px_rgba(147,51,234,0.4)]'
             : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 dark:text-purple-200 dark:hover:text-white dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)]'
@@ -103,7 +103,7 @@ export const ThemeDropdown: React.FC<ThemeDropdownProps> = ({
         </div>
         {showLabel && (
           <span
-            className={`hidden sm:inline-block text-xs font-semibold capitalize ${
+            className={`hidden sm:inline-block text-[11px] font-semibold capitalize ${
               open ? 'text-white' : 'text-slate-700 dark:text-purple-200'
             }`}
           >

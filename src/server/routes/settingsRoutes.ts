@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { pgClient } from '../../db/index.ts';
 import { requireAuth, requireAdmin } from '../auth.ts';
 import type { AuthenticatedRequest } from '../auth.ts';
@@ -331,6 +332,115 @@ router.put('/users/:id/role', requireAuth, requireAdmin, async (req: Authenticat
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to update user role: ' + err.message });
+  }
+});
+
+// Create User (Cashier or Admin) - Admin Only
+router.post('/users', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { name, email, password, phone, role, status } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Full name is required.' });
+    }
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required.' });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    const confirmPassword = req.body.confirmPassword || req.body.confirm_password;
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match.' });
+    }
+
+    const assignedRole = (role || 'CASHIER').toUpperCase();
+    if (!['ADMIN', 'CASHIER'].includes(assignedRole)) {
+      return res.status(400).json({ error: 'Invalid role. Must be ADMIN or CASHIER.' });
+    }
+
+    const initialStatus = (status || 'APPROVED').toUpperCase();
+    if (!['APPROVED', 'PENDING'].includes(initialStatus)) {
+      return res.status(400).json({ error: 'Invalid status. Must be APPROVED or PENDING.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = await pgClient.query('SELECT id FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'An account with this email address already exists.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const cleanPhone = typeof phone === 'string' ? phone.trim() : '';
+
+    const result = await pgClient.query(
+      `INSERT INTO users (name, email, phone, password_hash, role, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+       RETURNING id, name, email, phone, avatar_url, role, status, created_at, updated_at`,
+      [name.trim(), cleanEmail, cleanPhone, passwordHash, assignedRole, initialStatus]
+    );
+
+    res.status(201).json({
+      message: `${assignedRole === 'ADMIN' ? 'Administrator' : 'Cashier'} account created successfully.`,
+      user: result.rows[0],
+    });
+  } catch (err: any) {
+    console.error('Create user error:', err);
+    res.status(500).json({ error: 'Failed to create user: ' + err.message });
+  }
+});
+
+// Delete User - Admin Only
+router.delete('/users/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const targetUserId = parseInt(req.params.id, 10);
+    if (!targetUserId || isNaN(targetUserId)) {
+      return res.status(400).json({ error: 'Invalid user ID.' });
+    }
+
+    if (targetUserId === req.user!.id) {
+      return res.status(400).json({ error: 'You cannot delete your own active administrator account.' });
+    }
+
+    const targetUserRes = await pgClient.query('SELECT id, name, role FROM users WHERE id = $1', [targetUserId]);
+    if (targetUserRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const targetUser: any = targetUserRes.rows[0];
+    if (targetUser.role === 'ADMIN') {
+      const adminCountRes = await pgClient.query("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN'");
+      const adminCount = parseInt(adminCountRes.rows[0]?.count || '0', 10);
+      if (adminCount <= 1) {
+        return res.status(400).json({ error: 'Cannot delete the only remaining Administrator account in the system.' });
+      }
+    }
+
+    const currentAdminId = req.user!.id;
+    // Safely reassign foreign key references to the current active admin
+    // so historical sales, purchases, and audit logs are safely preserved
+    try {
+      await pgClient.query('UPDATE sales SET created_by = $1 WHERE created_by = $2', [currentAdminId, targetUserId]);
+      await pgClient.query('UPDATE sales SET overridden_by = NULL WHERE overridden_by = $1', [targetUserId]);
+      await pgClient.query('UPDATE purchases SET created_by = $1 WHERE created_by = $2', [currentAdminId, targetUserId]);
+      await pgClient.query('UPDATE supplier_payments SET created_by = $1 WHERE created_by = $2', [currentAdminId, targetUserId]);
+      await pgClient.query('UPDATE purchase_returns SET created_by = $1 WHERE created_by = $2', [currentAdminId, targetUserId]);
+      await pgClient.query('UPDATE returns SET created_by = $1 WHERE created_by = $2', [currentAdminId, targetUserId]);
+      await pgClient.query('UPDATE stock_movements SET user_id = $1 WHERE user_id = $2', [currentAdminId, targetUserId]);
+      await pgClient.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [targetUserId]);
+    } catch (reassignErr) {
+      console.warn('Reassignment notice on user deletion:', reassignErr);
+    }
+
+    await pgClient.query('DELETE FROM users WHERE id = $1', [targetUserId]);
+
+    res.json({
+      message: `User account "${targetUser.name}" has been deleted successfully.`,
+    });
+  } catch (err: any) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'Failed to delete user: ' + err.message });
   }
 });
 

@@ -346,10 +346,21 @@ export const api = {
     update: (body: any) => request<any>('/settings', { method: 'PUT', body: JSON.stringify(body) }),
 
     getUsers: () => request<{ users: any[] }>('/settings/users'),
+    createUser: (body: {
+      name: string;
+      email: string;
+      password: string;
+      confirmPassword?: string;
+      phone?: string;
+      role?: 'ADMIN' | 'CASHIER';
+      status?: 'APPROVED' | 'PENDING';
+    }) => request<{ message: string; user: any }>('/settings/users', { method: 'POST', body: JSON.stringify(body) }),
     updateUserStatus: (id: number, status: 'APPROVED' | 'PENDING') =>
       request<any>(`/settings/users/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
     updateUserRole: (id: number, role: 'ADMIN' | 'CASHIER') =>
       request<any>(`/settings/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
+    deleteUser: (id: number) =>
+      request<{ message: string }>(`/settings/users/${id}`, { method: 'DELETE' }),
   },
 
   // First-Time Server Installation & Setup Wizard

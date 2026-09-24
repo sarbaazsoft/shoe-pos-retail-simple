@@ -242,23 +242,23 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white dark:bg-[#0D1322] border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 select-none no-print sticky top-0 z-20 h-13 sm:h-14 flex items-center px-3 sm:px-5 justify-between gap-3 sm:gap-4 md:gap-6 transition-colors">
+    <header className="bg-white dark:bg-[#0D1322] border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 select-none no-print sticky top-0 z-20 h-9 sm:h-9.5 flex items-center px-3 sm:px-4 justify-between gap-2.5 sm:gap-3 md:gap-4 transition-colors">
       {/* LEFT: Mobile Menu Button + Global Search Bar */}
-      <div className="flex items-center gap-2.5 flex-1 max-w-sm sm:max-w-md min-w-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 max-w-sm sm:max-w-md min-w-0">
         {/* Mobile Menu Toggle Button (< lg) */}
         <button
           type="button"
           onClick={onToggleMobileMenu}
-          className="lg:hidden h-8 w-8 sm:h-8.5 sm:w-8.5 flex items-center justify-center p-1.5 rounded-lg border border-slate-200 dark:border-purple-400/40 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-purple-500/20 dark:text-purple-200 dark:hover:bg-purple-500/30 dark:hover:text-white dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] cursor-pointer shrink-0 shadow-2xs transition"
+          className="lg:hidden h-6 w-6 sm:h-6.5 sm:w-6.5 flex items-center justify-center p-0.5 rounded-md border border-slate-200 dark:border-purple-400/40 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-purple-500/20 dark:text-purple-200 dark:hover:bg-purple-500/30 dark:hover:text-white dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] cursor-pointer shrink-0 shadow-2xs transition"
           aria-label="Toggle navigation menu"
         >
-          <Menu className="w-4 h-4 stroke-[2.2] dark:text-purple-200" />
+          <Menu className="w-3.5 h-3.5 stroke-[2.2] dark:text-purple-200" />
         </button>
 
         {/* Global Search Bar (Exact match to Reference Image) */}
         <div ref={searchRef} className="relative w-full min-w-0">
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+            <Search className="w-3 h-3 text-slate-400 absolute left-2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -273,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowThemeDropdown(false);
               }}
               placeholder="Search products, customers, sales..."
-              className="h-8 sm:h-8.5 w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200/90 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              className="h-6 sm:h-6.5 w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200/90 dark:border-slate-800 text-[11px] text-slate-900 dark:text-white placeholder:text-slate-400 pl-6.5 pr-6 py-0 rounded-md outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
             />
             {searchQuery && (
               <button
@@ -282,7 +282,7 @@ export const Header: React.FC<HeaderProps> = ({
                   setSearchQuery('');
                   setIsSearching(false);
                 }}
-                className="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="absolute right-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -388,7 +388,7 @@ export const Header: React.FC<HeaderProps> = ({
     </div>
 
       {/* RIGHT: Notifications, Theme Dropdown, and User Profile */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto pl-1 sm:pl-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pl-1">
         {/* Real-time Notifications Menu */}
         <div ref={notifRef} className="relative">
           <button
@@ -403,7 +403,7 @@ export const Header: React.FC<HeaderProps> = ({
                 fetchLiveNotifications();
               }
             }}
-            className={`h-8 sm:h-8.5 flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all duration-200 cursor-pointer border ${
+            className={`h-6 sm:h-6.5 flex items-center gap-1.5 px-2 py-0 rounded-md transition-all duration-200 cursor-pointer border ${
               showNotifications
                 ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white border-purple-400/50 ring-2 ring-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_16px_rgba(147,51,234,0.4)]'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 dark:text-purple-200 dark:hover:text-white dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)]'
@@ -422,7 +422,7 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <span
-              className={`hidden sm:inline-block text-xs font-semibold ${
+              className={`hidden sm:inline-block text-[11px] font-semibold ${
                 showNotifications ? 'text-white' : 'text-slate-700 dark:text-purple-200'
               }`}
             >
@@ -601,7 +601,7 @@ export const Header: React.FC<HeaderProps> = ({
                   } catch {}
                 }
               }}
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-700/60 text-blue-700 dark:text-blue-300 text-xs font-bold transition shadow-2xs cursor-pointer"
+              className="hidden sm:inline-flex items-center h-6 sm:h-6.5 gap-1.5 px-2 py-0 rounded-md bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-700/60 text-blue-700 dark:text-blue-300 text-[11px] font-bold transition shadow-2xs cursor-pointer"
               title="You are browsing in Cashier Mode. Click to switch back to Admin mode."
             >
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
@@ -619,7 +619,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowThemeDropdown(false);
                 setShowNotifications(false);
               }}
-              className={`h-8 sm:h-8.5 flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all duration-200 cursor-pointer border ${
+              className={`h-6 sm:h-6.5 flex items-center gap-1.5 px-2 py-0 rounded-md transition-all duration-200 cursor-pointer border ${
                 showUserDropdown
                   ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white border-purple-400/50 ring-2 ring-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_16px_rgba(147,51,234,0.4)]'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 dark:text-purple-200 dark:hover:text-white dark:bg-purple-500/20 dark:hover:bg-purple-500/30 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.2)]'
@@ -630,7 +630,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <User className="w-3 h-3 stroke-[2] shrink-0 text-current opacity-90" />
               <span
-                className={`hidden sm:inline-block text-xs font-bold max-w-[100px] truncate ${
+                className={`hidden sm:inline-block text-[11px] font-bold max-w-[100px] truncate ${
                   showUserDropdown ? 'text-white' : 'text-slate-800 dark:text-purple-200'
                 }`}
               >

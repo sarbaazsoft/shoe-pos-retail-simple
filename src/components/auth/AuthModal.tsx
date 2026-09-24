@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   Fingerprint,
-  UserPlus,
   Store,
   ArrowRight,
   Database,
@@ -35,15 +34,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [tab, setTab] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
+  const [tab, setTab] = useState<'login' | 'forgot' | 'reset'>('login');
 
   // Form states
-  const [email, setEmail] = useState('admin@shoepos.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -78,48 +74,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onSuccess(res.user);
     } catch (err: any) {
       setErrorMessage(err.message || 'Login failed. Please verify your credentials.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setErrorMessage(null);
-    setInfoMessage(null);
-
-    if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
-      setIsLoading(false);
-      return;
-    }
-
-    if (!confirmPassword) {
-      setErrorMessage('Please confirm your cashier password.');
-      setIsLoading(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match. Please ensure both passwords are identical.');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const res = await api.auth.register({ name, email, password, confirmPassword });
-      setInfoMessage(
-        res.message ||
-          'Registration received! Your account is PENDING approval by the Shop Owner/Admin.'
-      );
-      setTab('login');
-      setEmail('');
-      setPassword('');
-      setConfirmPassword('');
-      setName('');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed.');
     } finally {
       setIsLoading(false);
     }
@@ -216,25 +170,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
 
                 <button
-                  id="auth-tab-register"
-                  type="button"
-                  data-active={tab === 'register'}
-                  onClick={() => {
-                    setTab('register');
-                    setErrorMessage(null);
-                    setInfoMessage(null);
-                  }}
-                  className={`tab-underline-link relative flex-1 py-3 text-xs sm:text-sm font-semibold transition-colors duration-300 flex items-center justify-center space-x-1.5 whitespace-nowrap cursor-pointer shrink-0 ${
-                    tab === 'register'
-                      ? 'active text-purple-600 dark:text-purple-400 font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-300'
-                  }`}
-                >
-                  <UserPlus className={`w-4 h-4 transition-colors duration-200 ${tab === 'register' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'}`} />
-                  <span>Register Cashier</span>
-                </button>
-
-                <button
                   id="auth-tab-forgot"
                   type="button"
                   data-active={tab === 'forgot' || tab === 'reset'}
@@ -258,13 +193,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="mb-4">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                   {tab === 'login' && 'Sign in to Terminal'}
-                  {tab === 'register' && 'Register Cashier Account'}
                   {tab === 'forgot' && 'Reset Terminal PIN / Password'}
                   {tab === 'reset' && 'Create New Password'}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-purple-200/70 mt-0.5">
                   {tab === 'login' && 'Enter your authorized email and password to access POS operations.'}
-                  {tab === 'register' && 'New cashier accounts require Shop Owner approval before counter access.'}
                   {tab === 'forgot' && 'Provide your registered email to receive an instant recovery code.'}
                   {tab === 'reset' && 'Enter your reset verification token and choose a new password.'}
                 </p>
@@ -381,195 +314,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </>
                     )}
                   </button>
-
-                  {/* Quick Preset Account Switcher */}
-                  <div className="pt-2 border-t border-slate-100 dark:border-purple-900/30">
-                    <p className="text-[11px] font-semibold text-slate-500 dark:text-purple-300/70 mb-2 text-center">
-                      Quick Demo Accounts:
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail('admin@shoepos.com');
-                          setPassword('admin123');
-                          setErrorMessage(null);
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg border border-purple-200/80 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/30 hover:bg-purple-100/70 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[11px] font-semibold text-left transition cursor-pointer flex flex-col"
-                      >
-                        <span className="font-bold">Shop Admin</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">admin@shoepos.com</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail('cashier@shoepos.com');
-                          setPassword('admin123');
-                          setErrorMessage(null);
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg border border-purple-200/80 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/30 hover:bg-purple-100/70 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[11px] font-semibold text-left transition cursor-pointer flex flex-col"
-                      >
-                        <span className="font-bold">Counter Cashier</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">cashier@shoepos.com</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTab('register');
-                        setErrorMessage(null);
-                      }}
-                      className="text-xs text-slate-600 hover:text-purple-700 dark:text-purple-200/80 dark:hover:text-purple-300 transition cursor-pointer"
-                    >
-                      New cashier staff?{' '}
-                      <span className="text-purple-600 hover:text-purple-800 dark:text-purple-300 font-bold underline underline-offset-2">
-                        Register new Cashier
-                      </span>
-                    </button>
-                  </div>
                 </form>
               )}
 
-              {/* TAB 2: REGISTER FORM */}
-              {tab === 'register' && (
-                <form onSubmit={handleRegister} className="space-y-3.5">
-                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Staff Policy:</strong> Cashier accounts are created in <strong>PENDING</strong> status and must be approved by the Shop Owner in <em>Settings &rarr; Users</em>.
-                    </span>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Cashier Full Name
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-600 dark:text-purple-400">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Zaid Khan"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="app-input w-full bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-purple-800/60 focus:bg-white dark:focus:bg-slate-900 focus:border-purple-600 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 dark:focus:ring-purple-500/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 rounded-xl text-xs sm:text-sm font-medium py-2.5 pl-[2.125rem] pr-4 transition outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Cashier Email Address
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-600 dark:text-purple-400">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="email"
-                        required
-                        placeholder="zaid@shoepos.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="app-input w-full bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-purple-800/60 focus:bg-white dark:focus:bg-slate-900 focus:border-purple-600 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 dark:focus:ring-purple-500/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 rounded-xl text-xs sm:text-sm font-medium py-2.5 pl-[2.125rem] pr-4 transition outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Password (min 6 chars)
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-600 dark:text-purple-400">
-                        <KeyRound className="w-4 h-4" />
-                      </div>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="app-input w-full bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-purple-800/60 focus:bg-white dark:focus:bg-slate-900 focus:border-purple-600 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 dark:focus:ring-purple-500/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 rounded-xl text-xs sm:text-sm font-medium py-2.5 pl-[2.125rem] pr-9 transition outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-200 transition cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Confirm Password
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-purple-600 dark:text-purple-400">
-                        <KeyRound className="w-4 h-4" />
-                      </div>
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        required
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="app-input w-full bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-purple-800/60 focus:bg-white dark:focus:bg-slate-900 focus:border-purple-600 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 dark:focus:ring-purple-500/20 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 rounded-xl text-xs sm:text-sm font-medium py-2.5 pl-[2.125rem] pr-9 transition outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-200 transition cursor-pointer"
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 dark:from-purple-600 dark:to-indigo-600 dark:hover:from-purple-500 dark:hover:to-indigo-500 text-white border border-purple-400/40 dark:border-purple-400/50 shadow-md shadow-purple-600/25 dark:shadow-[0_0_16px_rgba(147,51,234,0.35)] font-bold text-xs sm:text-sm transition active:scale-[0.99] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 mt-2"
-                  >
-                    {isLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Submitting Application...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Submit Registration</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTab('login');
-                        setErrorMessage(null);
-                      }}
-                      className="text-xs text-slate-600 hover:text-purple-700 dark:text-purple-200/80 dark:hover:text-purple-300 transition cursor-pointer"
-                    >
-                      Already have an active account?{' '}
-                      <span className="text-purple-600 hover:text-purple-800 dark:text-purple-300 font-bold underline underline-offset-2">
-                        Sign In
-                      </span>
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* TAB 3: FORGOT PASSWORD FORM */}
+              {/* TAB 2: FORGOT PASSWORD FORM */}
               {tab === 'forgot' && (
                 <form onSubmit={handleForgot} className="space-y-4">
                   <p className="text-xs text-slate-500 dark:text-purple-200/70 leading-relaxed font-medium">
