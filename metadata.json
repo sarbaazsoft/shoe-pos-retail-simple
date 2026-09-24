@@ -1,0 +1,8 @@
+{
+  "name": "Shoe-POS-Retail-Simple",
+  "description": "Imported from GitHub: sarbaazsoft/Shoe-POS-Retail-Simple",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

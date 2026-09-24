@@ -1,0 +1,337 @@
+import { Router } from 'express';
+import type { Request, Response } from 'express';
+import { pgClient } from '../../db/index.ts';
+import { requireAuth, requireAdmin } from '../auth.ts';
+import type { AuthenticatedRequest } from '../auth.ts';
+
+const router = Router();
+
+// GET /api/settings - Public or Authenticated to get company settings
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    const result = await pgClient.query('SELECT * FROM company_settings LIMIT 1');
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company settings not initialized.' });
+    }
+    const s: any = result.rows[0];
+    res.json({
+      settings: {
+        id: s.id,
+        name: s.name,
+        companyName: s.name,
+        company_name: s.name,
+        phone: s.phone || '',
+        companyPhone: s.phone || '',
+        company_phone: s.phone || '',
+        email: s.email || '',
+        companyEmail: s.email || '',
+        company_email: s.email || '',
+        address: s.address || '',
+        companyAddress: s.address || '',
+        company_address: s.address || '',
+        strn: s.strn || '',
+        taxId: s.tax_id || s.tax_number || '',
+        tax_id: s.tax_id || s.tax_number || '',
+        taxNumber: s.tax_number || s.tax_id || '',
+        tax_number: s.tax_number || s.tax_id || '',
+        website: s.website || '',
+        logo: s.logo || '',
+        currency: s.currency || 'PKR',
+        currencyName: s.currency_name || 'Pakistani Rupee',
+        currency_name: s.currency_name || 'Pakistani Rupee',
+        currencySymbol: s.currency_symbol || 'Rs.',
+        currency_symbol: s.currency_symbol || 'Rs.',
+        invoicePrefix: s.invoice_prefix || 'INV-',
+        invoice_prefix: s.invoice_prefix || 'INV-',
+        purchasePrefix: s.purchase_prefix || 'PUR-',
+        purchase_prefix: s.purchase_prefix || 'PUR-',
+        barcodePrefix: s.barcode_prefix || '0108923',
+        barcode_prefix: s.barcode_prefix || '0108923',
+        invoiceFooter: s.invoice_footer || '',
+        invoice_footer: s.invoice_footer || '',
+        lowStockLimit: s.low_stock_limit,
+        minProfitMargin: parseFloat(s.min_profit_margin ?? '10') || 10,
+        min_profit_margin: parseFloat(s.min_profit_margin ?? '10') || 10,
+        maxProfitMargin: parseFloat(s.max_profit_margin ?? '30') || 30,
+        max_profit_margin: parseFloat(s.max_profit_margin ?? '30') || 30,
+        isInstalled: Boolean(s.is_installed),
+        is_installed: Boolean(s.is_installed),
+        updatedAt: s.updated_at,
+      },
+    });
+  } catch (err: any) {
+    if (String(err?.message || '').includes('does not exist')) {
+      return res.status(200).json({
+        settings: {
+          id: 0,
+          name: 'Shoe Shop POS',
+          companyName: 'Shoe Shop POS',
+          company_name: 'Shoe Shop POS',
+          phone: '',
+          companyPhone: '',
+          email: '',
+          companyEmail: '',
+          address: '',
+          companyAddress: '',
+          currency: 'PKR',
+          currencyName: 'Pakistani Rupee',
+          currency_name: 'Pakistani Rupee',
+          currencySymbol: 'Rs.',
+          currency_symbol: 'Rs.',
+          invoicePrefix: 'INV-',
+          invoice_prefix: 'INV-',
+          purchasePrefix: 'PUR-',
+          purchase_prefix: 'PUR-',
+          barcodePrefix: '0108923',
+          barcode_prefix: '0108923',
+          minProfitMargin: 10,
+          min_profit_margin: 10,
+          maxProfitMargin: 30,
+          max_profit_margin: 30,
+          isInstalled: false,
+          is_installed: false,
+        },
+      });
+    }
+    res.status(500).json({ error: 'Failed to load settings: ' + err.message });
+  }
+});
+
+// PUT /api/settings - Update Company Settings (Admin Only)
+router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const companyName = (req.body.company_name || req.body.companyName || req.body.name || '').trim();
+    const companyPhone = (req.body.company_phone || req.body.companyPhone || req.body.phone || '').trim();
+    const companyEmail = (req.body.company_email || req.body.companyEmail || req.body.email || '').trim();
+    const companyAddress = (req.body.company_address || req.body.companyAddress || req.body.address || '').trim();
+    const strn = (req.body.strn || '').trim();
+    const taxId = (req.body.tax_id || req.body.taxId || req.body.taxNumber || req.body.tax_number || '').trim();
+    const website = (req.body.website || '').trim();
+
+    const currencyName = (req.body.currency_name || req.body.currencyName || 'Pakistani Rupee').trim();
+    const currencySymbol = (req.body.currency_symbol || req.body.currencySymbol || 'Rs.').trim();
+    const barcodePrefix = (req.body.barcode_prefix || req.body.barcodePrefix || '').trim();
+    const purchasePrefix = (req.body.purchase_prefix || req.body.purchasePrefix || 'PO-').trim();
+    const invoicePrefix = (req.body.invoice_prefix || req.body.invoicePrefix || 'INV-').trim();
+
+    const logo = req.body.logo || '';
+    const invoiceFooter = req.body.invoice_footer || req.body.invoiceFooter || '';
+    const lowStockLimit = parseInt(req.body.low_stock_limit || req.body.lowStockLimit, 10) || 5;
+    const rawMinMargin = req.body.min_profit_margin !== undefined ? req.body.min_profit_margin : req.body.minProfitMargin;
+    const minProfitMargin = rawMinMargin !== undefined && rawMinMargin !== null && rawMinMargin !== ''
+      ? Math.max(0, Math.min(100, parseFloat(rawMinMargin) || 0))
+      : 10;
+    const rawMaxMargin = req.body.max_profit_margin !== undefined ? req.body.max_profit_margin : req.body.maxProfitMargin;
+    const maxProfitMargin = rawMaxMargin !== undefined && rawMaxMargin !== null && rawMaxMargin !== ''
+      ? Math.max(0, Math.min(1000, parseFloat(rawMaxMargin) || 0))
+      : 30;
+    const currencyCode = req.body.currency || 'PKR';
+
+    // 1. Validations: Company Profile
+    if (!companyName) {
+      return res.status(400).json({ error: 'company_name is required.' });
+    }
+    if (!companyPhone) {
+      return res.status(400).json({ error: 'company_phone is required.' });
+    }
+    if (companyEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(companyEmail)) {
+        return res.status(400).json({ error: 'company_email must be in a valid email format (e.g., info@company.com).' });
+      }
+    }
+
+    // 2. Validations: Store Prefixes & Currency Settings
+    if (!currencyName) {
+      return res.status(400).json({ error: 'currency_name is required (e.g., "Pakistani Rupee", "US Dollar").' });
+    }
+    if (!currencySymbol) {
+      return res.status(400).json({ error: 'currency_symbol is required (e.g., "Rs.", "$", "PKR").' });
+    }
+    // barcode_prefix: Strictly 7 Numeric Digits
+    if (!/^\d{7}$/.test(barcodePrefix)) {
+      return res.status(400).json({
+        error: 'barcode_prefix must be strictly 7 numeric digits (e.g., 0108923 or 2000001).',
+      });
+    }
+    if (!purchasePrefix) {
+      return res.status(400).json({ error: 'purchase_prefix is required (e.g., "PO-").' });
+    }
+    if (!invoicePrefix) {
+      return res.status(400).json({ error: 'invoice_prefix is required (e.g., "INV-").' });
+    }
+
+    const updateRes = await pgClient.query(
+      `UPDATE company_settings SET 
+         name = $1, phone = $2, email = $3, address = $4,
+         strn = $5, tax_id = $6, tax_number = $6, website = $7, logo = $8,
+         currency_name = $9, currency = $10, currency_symbol = $11,
+         barcode_prefix = $12, purchase_prefix = $13, invoice_prefix = $14,
+         invoice_footer = $15, low_stock_limit = $16, min_profit_margin = $17, max_profit_margin = $18, updated_at = NOW()
+       WHERE id = (SELECT id FROM company_settings LIMIT 1)
+       RETURNING *`,
+      [
+        companyName,
+        companyPhone,
+        companyEmail,
+        companyAddress,
+        strn,
+        taxId,
+        website,
+        logo,
+        currencyName,
+        currencyCode,
+        currencySymbol,
+        barcodePrefix,
+        purchasePrefix,
+        invoicePrefix,
+        invoiceFooter,
+        lowStockLimit,
+        minProfitMargin,
+        maxProfitMargin,
+      ]
+    );
+
+    // Automatically synchronize products' minimum price to Cost Price + Minimum Profit Margin
+    try {
+      await pgClient.query(
+        'UPDATE products SET min_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2) WHERE purchase_price > 0',
+        [minProfitMargin]
+      );
+    } catch (syncErr) {
+      console.warn('Could not batch synchronize products min_sale_price:', syncErr);
+    }
+
+    const s: any = updateRes.rows[0];
+    res.json({
+      message: 'Company settings updated successfully.',
+      settings: {
+        id: s.id,
+        name: s.name,
+        companyName: s.name,
+        company_name: s.name,
+        phone: s.phone,
+        companyPhone: s.phone,
+        company_phone: s.phone,
+        email: s.email,
+        companyEmail: s.email,
+        company_email: s.email,
+        address: s.address,
+        companyAddress: s.address,
+        company_address: s.address,
+        strn: s.strn,
+        taxId: s.tax_id,
+        tax_id: s.tax_id,
+        taxNumber: s.tax_number,
+        tax_number: s.tax_number,
+        website: s.website,
+        logo: s.logo,
+        currency: s.currency,
+        currencyName: s.currency_name,
+        currency_name: s.currency_name,
+        currencySymbol: s.currency_symbol,
+        currency_symbol: s.currency_symbol,
+        invoicePrefix: s.invoice_prefix,
+        invoice_prefix: s.invoice_prefix,
+        purchasePrefix: s.purchase_prefix,
+        purchase_prefix: s.purchase_prefix,
+        barcodePrefix: s.barcode_prefix,
+        barcode_prefix: s.barcode_prefix,
+        invoiceFooter: s.invoice_footer,
+        invoice_footer: s.invoice_footer,
+        lowStockLimit: s.low_stock_limit,
+        minProfitMargin: parseFloat(s.min_profit_margin ?? '10') || 10,
+        min_profit_margin: parseFloat(s.min_profit_margin ?? '10') || 10,
+        maxProfitMargin: parseFloat(s.max_profit_margin ?? '30') || 30,
+        max_profit_margin: parseFloat(s.max_profit_margin ?? '30') || 30,
+        updatedAt: s.updated_at,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update settings: ' + err.message });
+  }
+});
+
+// --- USER MANAGEMENT (Admin Only) ---
+
+// List Users
+router.get('/users', requireAuth, requireAdmin, async (_req, res: Response) => {
+  try {
+    const result = await pgClient.query(
+      'SELECT id, name, email, phone, avatar_url, role, status, created_at, updated_at FROM users ORDER BY id ASC'
+    );
+    res.json({ users: result.rows });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch users: ' + err.message });
+  }
+});
+
+// Approve or Reject User Status
+router.put('/users/:id/status', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const targetUserId = parseInt(req.params.id, 10);
+    const { status } = req.body;
+
+    if (!['APPROVED', 'PENDING'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be APPROVED or PENDING.' });
+    }
+
+    // Prevent self-deactivation if last admin
+    if (targetUserId === req.user!.id && status === 'PENDING') {
+      return res.status(400).json({ error: 'You cannot revoke your own account approval.' });
+    }
+
+    const result = await pgClient.query(
+      'UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, name, email, role, status',
+      [status, targetUserId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const updatedUser: any = result.rows[0];
+
+    res.json({
+      message: `User ${updatedUser.name} has been ${status === 'APPROVED' ? 'APPROVED' : 'marked PENDING'}.`,
+      user: updatedUser,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update user status: ' + err.message });
+  }
+});
+
+// Change User Role
+router.put('/users/:id/role', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const targetUserId = parseInt(req.params.id, 10);
+    const { role } = req.body;
+
+    if (!['ADMIN', 'CASHIER'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be ADMIN or CASHIER.' });
+    }
+
+    // Prevent self-demotion if the current user is admin
+    if (targetUserId === req.user!.id && role !== 'ADMIN') {
+      return res.status(400).json({ error: 'You cannot remove your own Admin permissions.' });
+    }
+
+    const result = await pgClient.query(
+      'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, name, email, role, status',
+      [role, targetUserId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.json({
+      message: `User role updated to ${role}.`,
+      user: result.rows[0],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update user role: ' + err.message });
+  }
+});
+
+export default router;
