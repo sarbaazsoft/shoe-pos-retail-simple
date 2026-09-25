@@ -21,6 +21,7 @@ import {
   X,
   CheckCircle2,
   Lock,
+  ImageIcon,
 } from 'lucide-react';
 import { api } from '../../services/api.ts';
 import { playAudioFeedback } from '../../utils/audio.ts';
@@ -343,17 +344,51 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
     const onPosShoeExchangeEvent = () => {
       setIsExchangeModalOpen(true);
     };
+    const onPosAddToCartEvent = (e: any) => {
+      const product = e.detail?.product;
+      if (product) {
+        addProductToCart(product);
+        playAudioFeedback.barcodeScan();
+        playAudioFeedback.invoiceItemAdded();
+        setLastScannedFeedback({
+          message: 'Product added to invoice',
+          article: product.article || product.name,
+          sku: product.sku,
+        });
+        setTimeout(() => setLastScannedFeedback(null), 3200);
+      }
+    };
+
+    // Check for pending product added from Quick Price search bar
+    const pendingProductStr = sessionStorage.getItem('pending_pos_product');
+    if (pendingProductStr) {
+      try {
+        const prod = JSON.parse(pendingProductStr);
+        sessionStorage.removeItem('pending_pos_product');
+        addProductToCart(prod);
+        playAudioFeedback.barcodeScan();
+        playAudioFeedback.invoiceItemAdded();
+        setLastScannedFeedback({
+          message: 'Product added to invoice',
+          article: prod.article || prod.name,
+          sku: prod.sku,
+        });
+        setTimeout(() => setLastScannedFeedback(null), 3200);
+      } catch {}
+    }
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pos:delete-sale', onPosDeleteSaleEvent);
     window.addEventListener('pos:print-receipt', onPosPrintReceiptEvent);
     window.addEventListener('pos:shoe-exchange', onPosShoeExchangeEvent);
+    window.addEventListener('pos:add-to-cart', onPosAddToCartEvent);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pos:delete-sale', onPosDeleteSaleEvent);
       window.removeEventListener('pos:print-receipt', onPosPrintReceiptEvent);
       window.removeEventListener('pos:shoe-exchange', onPosShoeExchangeEvent);
+      window.removeEventListener('pos:add-to-cart', onPosAddToCartEvent);
     };
   }, [cart, isSubmitting, showAdminOverrideModal, completedSale, barcodeInput, inputMode, continuousScan, activeExchange]);
 
@@ -1248,14 +1283,31 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
                   >
                     <div className="flex items-center space-x-3">
                       {prod.primaryImageUrl ? (
-                        <img
-                          src={prod.primaryImageUrl}
-                          alt={prod.article || prod.name}
-                          className="w-10 h-10 object-cover rounded border border-slate-200 dark:border-slate-700"
-                        />
+                        <div className="relative w-10 h-10 shrink-0 rounded border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          <img
+                            src={prod.primaryImageUrl}
+                            alt={prod.article || prod.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const skeleton = e.currentTarget.nextElementSibling;
+                              if (skeleton) skeleton.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="hidden absolute inset-0 w-full h-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse flex flex-col items-center justify-center">
+                            <ImageIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                          </div>
+                        </div>
                       ) : (
-                        <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded flex items-center justify-center text-slate-400">
-                          <ShoppingBag className="w-5 h-5" />
+                        <div
+                          className="w-10 h-10 shrink-0 rounded border border-slate-200/80 dark:border-slate-800 bg-slate-200/80 dark:bg-slate-800/80 animate-pulse flex flex-col items-center justify-center p-1"
+                          title="No image - skeleton placeholder"
+                          aria-label="Product image skeleton"
+                        >
+                          <div className="w-4 h-4 rounded bg-slate-300/80 dark:bg-slate-700/80 flex items-center justify-center">
+                            <ImageIcon className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500" />
+                          </div>
+                          <div className="w-5 h-1 bg-slate-300/70 dark:bg-slate-700/70 rounded-full mt-1" />
                         </div>
                       )}
                       <div>

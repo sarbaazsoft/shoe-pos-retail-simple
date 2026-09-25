@@ -122,12 +122,13 @@ export const api = {
 
   // Products
   products: {
-    list: (params?: { search?: string; brandId?: number; categoryId?: number; lowStockOnly?: boolean }) => {
+    list: (params?: { search?: string; brandId?: number; categoryId?: number; lowStockOnly?: boolean; limit?: number }) => {
       const q = new URLSearchParams();
       if (params?.search) q.set('search', params.search);
       if (params?.brandId) q.set('brandId', String(params.brandId));
       if (params?.categoryId) q.set('categoryId', String(params.categoryId));
       if (params?.lowStockOnly) q.set('lowStockOnly', 'true');
+      if (params?.limit) q.set('limit', String(params.limit));
       return request<{ products: any[] }>(`/products?${q.toString()}`);
     },
     get: (id: number) => request<{ product: any }>(`/products/${id}`),

@@ -75,6 +75,49 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
   useEffect(() => {
     loadFilterData();
+
+    // Check for pending edit or barcode actions from Quick Price search bar
+    const handleEditEvent = (e: any) => {
+      const product = e.detail?.product;
+      if (product) {
+        setEditingProduct(product);
+        setIsFormModalOpen(true);
+      }
+    };
+
+    const handleBarcodeEvent = (e: any) => {
+      const product = e.detail?.product;
+      if (product) {
+        handleOpenBarcodeTool(product);
+      }
+    };
+
+    window.addEventListener('product:edit', handleEditEvent);
+    window.addEventListener('inventory:print-barcode', handleBarcodeEvent);
+
+    const pendingEditStr = sessionStorage.getItem('pending_edit_product');
+    if (pendingEditStr) {
+      try {
+        const prod = JSON.parse(pendingEditStr);
+        sessionStorage.removeItem('pending_edit_product');
+        setEditingProduct(prod);
+        setIsFormModalOpen(true);
+      } catch {}
+    }
+
+    const pendingBarcodeStr = sessionStorage.getItem('pending_barcode_product');
+    if (pendingBarcodeStr) {
+      try {
+        const prod = JSON.parse(pendingBarcodeStr);
+        sessionStorage.removeItem('pending_barcode_product');
+        handleOpenBarcodeTool(prod);
+      } catch {}
+    }
+
+    return () => {
+      window.removeEventListener('product:edit', handleEditEvent);
+      window.removeEventListener('inventory:print-barcode', handleBarcodeEvent);
+    };
   }, []);
 
   useEffect(() => {

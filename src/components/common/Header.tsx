@@ -36,11 +36,17 @@ import {
   Copy,
   Coins,
   Loader2,
+  ImageIcon,
+  Edit3,
+  PackagePlus,
+  Printer,
+  Barcode,
 } from 'lucide-react';
 import { UserAvatar } from './UserAvatar.tsx';
 import { ThemeDropdown } from './ThemeDropdown.tsx';
 import { useTheme } from '../../context/ThemeContext.tsx';
 import { api } from '../../services/api.ts';
+import { getProductRetailPrice, getProductMinFloorPrice } from '../../utils/priceFormat.ts';
 
 interface HeaderProps {
   currentTab: string;
@@ -52,6 +58,67 @@ interface HeaderProps {
   onOpenProfile?: () => void;
   onSwitchRole?: (role: 'ADMIN' | 'CASHIER') => void;
 }
+
+/**
+ * Component to display a product thumbnail in quick price search suggestions.
+ * If an image exists and loads successfully, displays the image.
+ * If no image exists or fails to load, displays an animated skeleton placeholder.
+ */
+interface QuickSearchProductImageProps {
+  prod: {
+    primaryImageUrl?: string | null;
+    primary_image_url?: string | null;
+    imageUrl?: string | null;
+    image?: string | null;
+    article?: string;
+    name?: string;
+  };
+}
+
+const QuickSearchProductImage: React.FC<QuickSearchProductImageProps> = ({ prod }) => {
+  const imageUrl = (prod.primaryImageUrl || prod.primary_image_url || prod.imageUrl || prod.image || '').trim();
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // If no image exists or image URL fails to load, show skeleton placeholder
+  if (!imageUrl || imageError) {
+    return (
+      <div
+        className="w-13 h-13 sm:w-14 sm:h-14 shrink-0 rounded-xl border border-slate-200/90 dark:border-slate-800/90 bg-slate-200/70 dark:bg-slate-800/60 animate-pulse flex flex-col items-center justify-center p-1.5 relative overflow-hidden shadow-2xs select-none"
+        title="No image - placeholder skeleton"
+        aria-label="Product image skeleton"
+      >
+        <div className="w-6 h-6 rounded-lg bg-slate-300/80 dark:bg-slate-700/80 flex items-center justify-center shadow-2xs">
+          <ImageIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+        </div>
+        <div className="w-7 h-1 bg-slate-300/60 dark:bg-slate-700/60 rounded-full mt-1.5" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-13 h-13 sm:w-14 sm:h-14 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-[#0A0E1A] overflow-hidden p-0.5 shadow-2xs flex items-center justify-center select-none">
+      {!imageLoaded && (
+        <div className="absolute inset-0 w-full h-full bg-slate-200/70 dark:bg-slate-800/60 animate-pulse flex flex-col items-center justify-center">
+          <div className="w-6 h-6 rounded-lg bg-slate-300/80 dark:bg-slate-700/80 flex items-center justify-center">
+            <ImageIcon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+          </div>
+          <div className="w-7 h-1 bg-slate-300/60 dark:bg-slate-700/60 rounded-full mt-1.5" />
+        </div>
+      )}
+      <img
+        src={imageUrl}
+        alt={prod.article || prod.name || 'Shoe product'}
+        className={`w-full h-full object-cover rounded-lg transition-opacity duration-200 ${
+          imageLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageError(true)}
+        loading="lazy"
+      />
+    </div>
+  );
+};
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
@@ -95,9 +162,42 @@ export const Header: React.FC<HeaderProps> = ({
     } catch {}
   };
 
-  // Close dropdowns on outside click
+  // Quick Action Handlers for retrieved product in Quick Price check
+  const handleAddToCart = (e: React.MouseEvent, prod: any) => {
+    e.stopPropagation();
+    setIsSearching(false);
+    sessionStorage.setItem('pending_pos_product', JSON.stringify(prod));
+    window.dispatchEvent(new CustomEvent('pos:add-to-cart', { detail: { product: prod } }));
+    onTabChange?.('pos');
+  };
+
+  const handleEditProduct = (e: React.MouseEvent, prod: any) => {
+    e.stopPropagation();
+    setIsSearching(false);
+    sessionStorage.setItem('pending_edit_product', JSON.stringify(prod));
+    window.dispatchEvent(new CustomEvent('product:edit', { detail: { product: prod } }));
+    onTabChange?.('inventory');
+  };
+
+  const handleAddPurchase = (e: React.MouseEvent, prod: any) => {
+    e.stopPropagation();
+    setIsSearching(false);
+    sessionStorage.setItem('pending_purchase_product', JSON.stringify(prod));
+    window.dispatchEvent(new CustomEvent('purchase:new-entry', { detail: { product: prod } }));
+    onTabChange?.('purchases');
+  };
+
+  const handlePrintBarcode = (e: React.MouseEvent, prod: any) => {
+    e.stopPropagation();
+    setIsSearching(false);
+    sessionStorage.setItem('pending_barcode_product', JSON.stringify(prod));
+    window.dispatchEvent(new CustomEvent('inventory:print-barcode', { detail: { product: prod } }));
+    onTabChange?.('inventory');
+  };
+
+  // Close dropdowns on outside click or touch
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setShowNotifications(false);
       }
@@ -109,10 +209,80 @@ export const Header: React.FC<HeaderProps> = ({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
-  // Quick price search - does NOT change routes, directly retrieves price suggestions
+  // Quick price search - does NOT change routes, directly retrieves single product price suggestions
+  const searchTimeoutRef = useRef<any>(null);
+
+  const executeSingleProductPriceSearch = async (queryText: string) => {
+    const q = queryText.trim();
+    if (!q) {
+      setPriceSearchResults([]);
+      setIsLoadingSearch(false);
+      return;
+    }
+
+    setIsLoadingSearch(true);
+    try {
+      let singleProduct: any = null;
+      const lowerQ = q.toLowerCase();
+
+      // 1. Fetch matching products from API
+      const prodRes = await api.products.list({ search: q, limit: 30 }).catch(() => ({ products: [] }));
+      const list = prodRes?.products || [];
+
+      if (list.length > 0) {
+        // TOP PRIORITY: Exact match on product article (case-insensitive)
+        const exactArticle = list.find(
+          (p: any) => p.article && p.article.trim().toLowerCase() === lowerQ
+        );
+
+        // SECOND PRIORITY: Exact match on SKU or Barcode
+        const exactSkuOrBarcode = list.find(
+          (p: any) =>
+            (p.sku && p.sku.trim().toLowerCase() === lowerQ) ||
+            (p.barcode && p.barcode.trim().toLowerCase() === lowerQ)
+        );
+
+        // THIRD PRIORITY: Article starts with search query
+        const startsArticle = list.find(
+          (p: any) => p.article && p.article.trim().toLowerCase().startsWith(lowerQ)
+        );
+
+        // FOURTH PRIORITY: SKU starts with search query
+        const startsSku = list.find(
+          (p: any) => p.sku && p.sku.trim().toLowerCase().startsWith(lowerQ)
+        );
+
+        singleProduct = exactArticle || exactSkuOrBarcode || startsArticle || startsSku || list[0];
+      }
+
+      // 2. If not found in product list, try direct scanner lookup endpoint as fallback
+      if (!singleProduct) {
+        try {
+          const directLookup = await api.products.lookupBarcode(q);
+          if (directLookup?.product) {
+            singleProduct = directLookup.product;
+          }
+        } catch {
+          // not found
+        }
+      }
+
+      // Always return ONLY the single matching product
+      setPriceSearchResults(singleProduct ? [singleProduct] : []);
+    } catch {
+      setPriceSearchResults([]);
+    } finally {
+      setIsLoadingSearch(false);
+    }
+  };
+
   useEffect(() => {
     if (!searchQuery.trim()) {
       setPriceSearchResults([]);
@@ -120,21 +290,20 @@ export const Header: React.FC<HeaderProps> = ({
       return;
     }
 
-    const q = searchQuery.trim();
-    setIsLoadingSearch(true);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
 
-    const timer = setTimeout(async () => {
-      try {
-        const prodRes = await api.products.list({ search: q }).catch(() => ({ products: [] }));
-        setPriceSearchResults(prodRes?.products || []);
-      } catch {
-        setPriceSearchResults([]);
-      } finally {
-        setIsLoadingSearch(false);
-      }
+    setIsLoadingSearch(true);
+    searchTimeoutRef.current = setTimeout(() => {
+      executeSingleProductPriceSearch(searchQuery);
     }, 180);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, [searchQuery]);
 
   // Real-time system notifications
@@ -271,7 +440,14 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowUserDropdown(false);
                 setShowThemeDropdown(false);
               }}
-              placeholder="Quick price check By Article ..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+                  executeSingleProductPriceSearch(searchQuery);
+                }
+              }}
+              placeholder="Quick price check (Article, Barcode, SKU)..."
               className="h-8 sm:h-8.5 uppercase w-full bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-indigo-500/20 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all font-medium"
             />
             {searchQuery && (
@@ -289,16 +465,16 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Quick Price Retrieval Suggestions Dropdown (No routing, instant price cards) */}
+          {/* Quick Price Retrieval Suggestions Dropdown (Single Product Price Display) */}
           <AnimatePresence>
             {isSearching && searchQuery.trim().length > 0 && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.96, y: -8 }}
+                initial={{ opacity: 0, scale: 0.97, y: -6 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: -8 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, scale: 0.97, y: -6 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                 style={{ transformOrigin: 'top left' }}
-                className="absolute left-0 w-84 sm:w-96 md:w-[440px] max-w-[calc(100vw-2rem)] top-full mt-2 bg-white dark:bg-[#0D1322] border border-slate-200 dark:border-indigo-500/30 rounded-2xl shadow-2xl p-3 z-50 max-h-[30rem] overflow-y-auto space-y-2 backdrop-blur-md"
+                className="fixed left-2 right-2 top-[3.8rem] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-96 md:w-[440px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0D1322] border border-slate-200 dark:border-indigo-500/30 rounded-2xl shadow-2xl p-3 z-50 max-h-[calc(100dvh-4.6rem)] sm:max-h-[30rem] overflow-y-auto space-y-2 backdrop-blur-md"
               >
                 {/* Header title */}
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -317,15 +493,37 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 )}
 
-                {/* Loading state */}
+                {/* Loading state with skeleton cards */}
                 {isLoadingSearch && (
-                  <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
-                    <span>Searching price details...</span>
+                  <div className="space-y-2 py-1">
+                    <div className="py-2 text-center text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                      <span>Searching price details...</span>
+                    </div>
+                    {[1, 2].map((idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/50 dark:bg-[#121A2F]/50 animate-pulse space-y-2.5"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                          <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
+                            <div className="h-3.5 bg-slate-200 dark:bg-slate-800 rounded w-3/5" />
+                            <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded w-2/5" />
+                          </div>
+                          <div className="w-16 h-4 bg-slate-200 dark:bg-slate-800 rounded-full shrink-0" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                          <div className="h-8 bg-slate-200/70 dark:bg-slate-800/60 rounded-lg" />
+                          <div className="h-8 bg-slate-200/70 dark:bg-slate-800/60 rounded-lg" />
+                          <div className="h-8 bg-slate-200/70 dark:bg-slate-800/60 rounded-lg" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* Suggestions list */}
+                {/* Suggestions list (First Layout) */}
                 {!isLoadingSearch && priceSearchResults.length > 0 && (
                   <div className="space-y-2">
                     {priceSearchResults.slice(0, 10).map((prod) => (
@@ -334,82 +532,277 @@ export const Header: React.FC<HeaderProps> = ({
                         className="p-2.5 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#121A2F] hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-all select-text cursor-default"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {/* Title & Metadata */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                {prod.article || prod.name}
-                              </span>
-                              {prod.brandName && prod.brandName !== 'Unbranded' && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/50">
-                                  {prod.brandName}
-                                </span>
-                              )}
-                              {prod.categoryName && prod.categoryName !== 'Uncategorized' && (
-                                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                                  • {prod.categoryName}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5 text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
-                              <span>SKU: {prod.sku || '—'}</span>
-                              {prod.barcode && <span>• Barcode: {prod.barcode}</span>}
-                            </div>
-                          </div>
+                        {/* Title, Product Image (or Skeleton) & Metadata */}
+                        <div className="flex items-start gap-2.5">
+                          {/* Product Image if exists, else Skeleton */}
+                          <QuickSearchProductImage prod={prod} />
 
-                          <div className="shrink-0 text-right">
-                            <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              (prod.totalStock ?? 0) > 0 
-                                ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40'
-                                : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40'
-                            }`}>
-                              {prod.totalStock ?? 0} in stock
-                            </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-1.5">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                    {prod.article || prod.name}
+                                  </span>
+                                  {prod.brandName && prod.brandName !== 'Unbranded' && (
+                                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/50">
+                                      {prod.brandName}
+                                    </span>
+                                  )}
+                                  {prod.categoryName && prod.categoryName !== 'Uncategorized' && (
+                                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                      • {prod.categoryName}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
+                                  <span>SKU: {prod.sku || '—'}</span>
+                                  {prod.barcode && <span>• Barcode: {prod.barcode}</span>}
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 text-right">
+                                <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  (prod.totalStock ?? 0) > 0 
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40'
+                                    : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40'
+                                }`}>
+                                  {prod.totalStock ?? 0} in stock
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        {/* 3-Column Pricing Grid: Cost Price, Minimum Sale Price, Maximum Sale Price */}
-                        <div className="grid grid-cols-3 gap-1.5 mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/80">
-                          {/* Cost Price */}
-                          <div className="p-1.5 rounded-lg bg-white dark:bg-[#090D18] border border-slate-200 dark:border-slate-800 text-center">
-                            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                              Cost Price
+                        {/* Pricing Grid: Respects Fixed vs Negotiable Policy and Admin vs Cashier Authority */}
+                        {(() => {
+                          const rawPricingMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+                          const isFixedPolicy = rawPricingMode === 'FIXED';
+                          const isOwnerOrAdmin = String(currentUser?.role || '').toUpperCase() === 'ADMIN';
+
+                          const fixedSalePrice = getProductRetailPrice(prod, companySettings) || prod.maxSalePrice || prod.costPrice || 0;
+                          const minSalePrice = getProductMinFloorPrice(prod, companySettings) || prod.minSalePrice || 0;
+                          const maxSalePrice = getProductRetailPrice(prod, companySettings) || prod.maxSalePrice || 0;
+                          const costPrice = prod.costPrice ?? prod.purchasePrice ?? 0;
+
+                          if (isFixedPolicy) {
+                            // FIXED PRICING MODE: Single Fixed Sale Price (no min/max negotiation)
+                            return (
+                              <div className="mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/80">
+                                {isOwnerOrAdmin ? (
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                    {/* Cost Price - Visible ONLY to Owner/Admin */}
+                                    <div className="p-2 rounded-lg bg-white dark:bg-[#090D18] border border-slate-200 dark:border-slate-800 text-center">
+                                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                                        Cost Price (Admin)
+                                      </div>
+                                      <div className="text-sm font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
+                                        {formatPrice(costPrice)}
+                                      </div>
+                                    </div>
+
+                                    {/* Fixed Sale Price */}
+                                    <div
+                                      onClick={(e) => copyPriceValue(e, fixedSalePrice, `Fixed price (${formatPrice(fixedSalePrice)})`)}
+                                      className="p-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 text-center cursor-pointer hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40 transition group/fixed"
+                                      title="Click to copy Fixed Sale Price"
+                                    >
+                                      <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1">
+                                        <span>Fixed Sale Price</span>
+                                        <Copy className="w-2.5 h-2.5 opacity-60 group-hover/fixed:opacity-100" />
+                                      </div>
+                                      <div className="text-sm font-mono font-extrabold text-emerald-800 dark:text-emerald-200 mt-0.5">
+                                        {formatPrice(fixedSalePrice)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* Cashier View in Fixed Mode: Solely the Fixed Sale Price (Cost Price is hidden) */
+                                  <div
+                                    onClick={(e) => copyPriceValue(e, fixedSalePrice, `Fixed price (${formatPrice(fixedSalePrice)})`)}
+                                    className="p-2.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 text-center cursor-pointer hover:bg-emerald-100/80 transition group/cashierfixed"
+                                    title="Click to copy Fixed Sale Price"
+                                  >
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1.5">
+                                      <span>Fixed Sale Price</span>
+                                      <span className="text-[9px] font-normal normal-case opacity-75">(Fixed Policy • No Bargaining)</span>
+                                      <Copy className="w-3 h-3 opacity-60 group-hover/cashierfixed:opacity-100" />
+                                    </div>
+                                    <div className="text-lg font-mono font-black text-emerald-900 dark:text-emerald-100 mt-0.5">
+                                      {formatPrice(fixedSalePrice)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          // NEGOTIABLE PRICING MODE:
+                          return (
+                            <div className="mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/80">
+                              {isOwnerOrAdmin ? (
+                                /* Owner/Admin View in Negotiable Mode: Cost Price, Min Sale Price, Max Sale Price */
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  {/* Cost Price - Visible ONLY to Owner/Admin */}
+                                  <div className="p-1.5 rounded-lg bg-white dark:bg-[#090D18] border border-slate-200 dark:border-slate-800 text-center">
+                                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                                      Cost Price (Admin)
+                                    </div>
+                                    <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
+                                      {formatPrice(costPrice)}
+                                    </div>
+                                  </div>
+
+                                  {/* Min Sale Price (Floor) */}
+                                  <div
+                                    onClick={(e) => copyPriceValue(e, minSalePrice, `Min price (${formatPrice(minSalePrice)})`)}
+                                    className="p-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-700/50 text-center cursor-pointer hover:bg-amber-100/80 dark:hover:bg-amber-900/40 transition group/min"
+                                    title="Click to copy Minimum Sale Price"
+                                  >
+                                    <div className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1">
+                                      <span>Min Sale</span>
+                                      <Copy className="w-2.5 h-2.5 opacity-60 group-hover/min:opacity-100" />
+                                    </div>
+                                    <div className="text-xs font-mono font-extrabold text-amber-800 dark:text-amber-200 mt-0.5">
+                                      {formatPrice(minSalePrice)}
+                                    </div>
+                                  </div>
+
+                                  {/* Max Sale Price (Retail) */}
+                                  <div
+                                    onClick={(e) => copyPriceValue(e, maxSalePrice, `Max price (${formatPrice(maxSalePrice)})`)}
+                                    className="p-1.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-700/50 text-center cursor-pointer hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40 transition group/max"
+                                    title="Click to copy Maximum Sale Price"
+                                  >
+                                    <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1">
+                                      <span>Max Sale</span>
+                                      <Copy className="w-2.5 h-2.5 opacity-60 group-hover/max:opacity-100" />
+                                    </div>
+                                    <div className="text-xs font-mono font-extrabold text-emerald-800 dark:text-emerald-200 mt-0.5">
+                                      {formatPrice(maxSalePrice)}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* Cashier View in Negotiable Mode: Min Sale & Max Sale ONLY (Cost is hidden) */
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  {/* Min Sale Price (Floor) */}
+                                  <div
+                                    onClick={(e) => copyPriceValue(e, minSalePrice, `Min price (${formatPrice(minSalePrice)})`)}
+                                    className="p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-700/50 text-center cursor-pointer hover:bg-amber-100/80 dark:hover:bg-amber-900/40 transition group/min"
+                                    title="Click to copy Minimum Sale Price"
+                                  >
+                                    <div className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1">
+                                      <span>Min Sale (Floor)</span>
+                                      <Copy className="w-2.5 h-2.5 opacity-60 group-hover/min:opacity-100" />
+                                    </div>
+                                    <div className="text-sm font-mono font-extrabold text-amber-800 dark:text-amber-200 mt-0.5">
+                                      {formatPrice(minSalePrice)}
+                                    </div>
+                                  </div>
+
+                                  {/* Max Sale Price (Retail) */}
+                                  <div
+                                    onClick={(e) => copyPriceValue(e, maxSalePrice, `Max price (${formatPrice(maxSalePrice)})`)}
+                                    className="p-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-700/50 text-center cursor-pointer hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40 transition group/max"
+                                    title="Click to copy Maximum Sale Price"
+                                  >
+                                    <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1">
+                                      <span>Max Sale (Retail)</span>
+                                      <Copy className="w-2.5 h-2.5 opacity-60 group-hover/max:opacity-100" />
+                                    </div>
+                                    <div className="text-sm font-mono font-extrabold text-emerald-800 dark:text-emerald-200 mt-0.5">
+                                      {formatPrice(maxSalePrice)}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
-                              {formatPrice(prod.costPrice)}
-                            </div>
+                          );
+                        })()}
+
+                        {/* Quick Action Buttons: Tailored to Respective Authority (Admin vs Cashier) */}
+                        <div className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-800/80">
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 flex items-center justify-between">
+                            <span>Quick Actions</span>
+                            <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500">
+                              {(currentUser?.role || '').toUpperCase() === 'ADMIN' ? 'Owner / Admin Authority' : 'Cashier Authority'}
+                            </span>
                           </div>
 
-                          {/* Min Sale Price (Floor) */}
-                          <div
-                            onClick={(e) => copyPriceValue(e, prod.minSalePrice, `Min price (${formatPrice(prod.minSalePrice)})`)}
-                            className="p-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-700/50 text-center cursor-pointer hover:bg-amber-100/80 dark:hover:bg-amber-900/40 transition group/min"
-                            title="Click to copy Minimum Sale Price"
-                          >
-                            <div className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1">
-                              <span>Min Sale</span>
-                              <Copy className="w-2.5 h-2.5 opacity-60 group-hover/min:opacity-100" />
-                            </div>
-                            <div className="text-xs font-mono font-extrabold text-amber-800 dark:text-amber-200 mt-0.5">
-                              {formatPrice(prod.minSalePrice)}
-                            </div>
-                          </div>
+                          {(currentUser?.role || '').toUpperCase() === 'ADMIN' ? (
+                            /* Owner / Admin Authority Actions: 4 buttons divided into 2 rows (2x2 grid) for clean, readable labels */
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {/* Row 1, Col 1: Add to POS Cart */}
+                              <button
+                                type="button"
+                                onClick={(e) => handleAddToCart(e, prod)}
+                                className="py-2 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer group/btn whitespace-nowrap"
+                                title="Add product directly to POS sale"
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                <span>Add to Cart</span>
+                              </button>
 
-                          {/* Max Sale Price (Retail) */}
-                          <div
-                            onClick={(e) => copyPriceValue(e, prod.maxSalePrice, `Max price (${formatPrice(prod.maxSalePrice)})`)}
-                            className="p-1.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-700/50 text-center cursor-pointer hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40 transition group/max"
-                            title="Click to copy Maximum Sale Price"
-                          >
-                            <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1">
-                              <span>Max Sale</span>
-                              <Copy className="w-2.5 h-2.5 opacity-60 group-hover/max:opacity-100" />
+                              {/* Row 1, Col 2: Edit Product */}
+                              <button
+                                type="button"
+                                onClick={(e) => handleEditProduct(e, prod)}
+                                className="py-2 px-2.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer group/btn whitespace-nowrap"
+                                title="Edit product details, pricing, and stock limits"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                <span>Edit Product</span>
+                              </button>
+
+                              {/* Row 2, Col 1: Add Purchase */}
+                              <button
+                                type="button"
+                                onClick={(e) => handleAddPurchase(e, prod)}
+                                className="py-2 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer group/btn whitespace-nowrap"
+                                title="Create new inward purchase entry for this shoe"
+                              >
+                                <PackagePlus className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                <span>Add Purchase</span>
+                              </button>
+
+                              {/* Row 2, Col 2: Print Barcode Label */}
+                              <button
+                                type="button"
+                                onClick={(e) => handlePrintBarcode(e, prod)}
+                                className="py-2 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer group/btn whitespace-nowrap"
+                                title="Generate and print barcode label for this shoe"
+                              >
+                                <Printer className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                <span>Barcode</span>
+                              </button>
                             </div>
-                            <div className="text-xs font-mono font-extrabold text-emerald-800 dark:text-emerald-200 mt-0.5">
-                              {formatPrice(prod.maxSalePrice)}
+                          ) : (
+                            /* Cashier Authority Actions: Add to Cart and Barcode only */
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {/* Add to POS Cart */}
+                              <button
+                                type="button"
+                                onClick={(e) => handleAddToCart(e, prod)}
+                                className="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer group/btn"
+                                title="Add product directly to POS sale"
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                <span>Add to Cart</span>
+                              </button>
+
+                              {/* Print Barcode Label */}
+                              <button
+                                type="button"
+                                onClick={(e) => handlePrintBarcode(e, prod)}
+                                className="py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer group/btn"
+                                title="Generate and print barcode label for this shoe"
+                              >
+                                <Printer className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
+                                <span>Barcode</span>
+                              </button>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -419,7 +812,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Empty State */}
                 {!isLoadingSearch && priceSearchResults.length === 0 && (
                   <div className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
-                    No footwear products found for "{searchQuery}"
+                    No footwear product found for "{searchQuery}"
                   </div>
                 )}
               </motion.div>
@@ -481,11 +874,11 @@ export const Header: React.FC<HeaderProps> = ({
           <AnimatePresence>
             {showNotifications && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.94, y: -8 }}
+                initial={{ opacity: 0, scale: 0.96, y: -6 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.94, y: -8 }}
+                exit={{ opacity: 0, scale: 0.96, y: -6 }}
                 transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute right-0 sm:right-auto sm:left-0 top-full mt-2 w-76 sm:w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#120726] border border-slate-200 dark:border-purple-400/40 rounded-xl shadow-2xl dark:shadow-[0_0_25px_rgba(147,51,234,0.25)] p-2 z-50 backdrop-blur-md origin-top-right sm:origin-top-left"
+                className="fixed left-2 right-2 top-[3.8rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 md:w-96 max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] bg-white dark:bg-[#120726] border border-slate-200 dark:border-purple-400/40 rounded-xl shadow-2xl dark:shadow-[0_0_25px_rgba(147,51,234,0.25)] p-2 z-50 backdrop-blur-md origin-top sm:origin-top-right max-h-[calc(100dvh-4.6rem)] overflow-y-auto"
               >
                 {/* Header */}
                 <div className="px-2.5 py-1.5 border-b border-slate-100 dark:border-purple-800/40 mb-1 flex items-center justify-between">

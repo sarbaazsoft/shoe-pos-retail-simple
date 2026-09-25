@@ -415,7 +415,7 @@ router.get('/lookup/:barcode', requireAuth, async (req, res: Response) => {
 // List Products
 router.get('/', requireAuth, async (req, res: Response) => {
   try {
-    const { search, brandId, categoryId, lowStockOnly } = req.query;
+    const { search, brandId, categoryId, lowStockOnly, limit } = req.query;
 
     let query = `
       SELECT p.id, p.name, p.brand_id, b.name as brand_name, COALESCE(b.logo, '') as brand_logo,
@@ -449,6 +449,10 @@ router.get('/', requireAuth, async (req, res: Response) => {
     }
 
     query += ` ORDER BY p.id DESC`;
+
+    if (limit && !isNaN(Number(limit))) {
+      query += ` LIMIT ${Math.max(1, Number(limit))}`;
+    }
 
     const [result, settings] = await Promise.all([
       pgClient.query(query, params),

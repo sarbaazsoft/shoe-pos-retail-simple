@@ -212,6 +212,33 @@ export const PurchaseManagement: React.FC<PurchaseManagementProps> = ({
     loadProducts();
     loadSuppliers();
     loadBrandsAndCategories();
+
+    // Check for pending purchase entry from Quick Price search bar
+    const handleNewPurchaseEvent = (e: any) => {
+      const product = e.detail?.product;
+      if (product) {
+        setIsModalOpen(true);
+        setModalStep(1);
+        handleSelectProduct(product);
+      }
+    };
+
+    window.addEventListener('purchase:new-entry', handleNewPurchaseEvent);
+
+    const pendingPurchaseStr = sessionStorage.getItem('pending_purchase_product');
+    if (pendingPurchaseStr) {
+      try {
+        const prod = JSON.parse(pendingPurchaseStr);
+        sessionStorage.removeItem('pending_purchase_product');
+        setIsModalOpen(true);
+        setModalStep(1);
+        handleSelectProduct(prod);
+      } catch {}
+    }
+
+    return () => {
+      window.removeEventListener('purchase:new-entry', handleNewPurchaseEvent);
+    };
   }, []);
 
   useEffect(() => {
