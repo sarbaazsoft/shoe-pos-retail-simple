@@ -20,6 +20,7 @@ import {
   RotateCcw,
   X,
   CheckCircle2,
+  Lock,
 } from 'lucide-react';
 import { api } from '../../services/api.ts';
 import { playAudioFeedback } from '../../utils/audio.ts';
@@ -170,6 +171,14 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
   const autoLookupTimerRef = useRef<any>(null);
 
   const currencySymbol = companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
+  const rawPricingMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+  const isFixedPolicy = rawPricingMode === 'FIXED';
+  const fixedProfitMarginSetting =
+    typeof companySettings?.fixed_profit_margin === 'number'
+      ? companySettings.fixed_profit_margin
+      : typeof companySettings?.fixedProfitMargin === 'number'
+      ? companySettings.fixedProfitMargin
+      : parseFloat(companySettings?.fixed_profit_margin || companySettings?.fixedProfitMargin || '30') || 30;
 
   // Offline Persistence & Background Synchronization Hook
   const { isOnline, pendingCount } = useOfflineSync();
@@ -532,44 +541,52 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
     const prodIdentifier = product.article || product.name || 'Shoe';
     const cost = Number(product.purchasePrice) || 0;
 
-    const maxMarginThreshold =
-      typeof companySettings?.max_profit_margin === 'number'
-        ? companySettings.max_profit_margin
-        : typeof companySettings?.max_profit_margin_percent === 'number'
-        ? companySettings.max_profit_margin_percent
-        : typeof companySettings?.max_profit_margin === 'string'
-        ? parseFloat(companySettings.max_profit_margin)
-        : 30;
+    const maxMarginThreshold = isFixedPolicy
+      ? fixedProfitMarginSetting
+      : typeof companySettings?.max_profit_margin === 'number'
+      ? companySettings.max_profit_margin
+      : typeof companySettings?.max_profit_margin_percent === 'number'
+      ? companySettings.max_profit_margin_percent
+      : typeof companySettings?.maxProfitMargin === 'number'
+      ? companySettings.maxProfitMargin
+      : typeof companySettings?.maxProfitMarginPercent === 'number'
+      ? companySettings.maxProfitMarginPercent
+      : parseFloat(companySettings?.max_profit_margin || companySettings?.maxProfitMargin || '30') || 30;
 
-    const minMarginThreshold =
-      typeof companySettings?.min_profit_margin === 'number'
-        ? companySettings.min_profit_margin
-        : typeof companySettings?.minProfitMargin === 'number'
-        ? companySettings.minProfitMargin
-        : typeof companySettings?.min_profit_margin === 'string'
-        ? parseFloat(companySettings.min_profit_margin)
-        : 10;
+    const minMarginThreshold = isFixedPolicy
+      ? fixedProfitMarginSetting
+      : typeof companySettings?.min_profit_margin === 'number'
+      ? companySettings.min_profit_margin
+      : typeof companySettings?.minProfitMargin === 'number'
+      ? companySettings.minProfitMargin
+      : typeof companySettings?.min_profit_margin_percent === 'number'
+      ? companySettings.min_profit_margin_percent
+      : typeof companySettings?.minProfitMarginPercent === 'number'
+      ? companySettings.minProfitMarginPercent
+      : parseFloat(companySettings?.min_profit_margin || companySettings?.minProfitMargin || '15') || 15;
 
-    // Minimum Allowed Floor: Cost + Minimum Profit Margin
+    // Minimum Allowed Floor: Cost + Minimum Profit Margin (or Cost + Fixed Profit Margin in Fixed mode)
     const calculatedMinFloor = cost > 0
       ? Math.round(cost * (1 + minMarginThreshold / 100))
       : Number(product.minSalePrice || 0);
 
-    // Maximum Sale Price (MRP): Cost + Maximum Profit Margin (or stored maxSalePrice)
+    // Maximum Sale Price (MRP): Cost + Maximum Profit Margin (or Cost + Fixed Profit Margin in Fixed mode)
     const calculatedMaxPrice = cost > 0
       ? Math.round(cost * (1 + maxMarginThreshold / 100))
       : 0;
 
     // Sticker / Initial Retail Selling Price (matches barcode sticker printed on shoe box)
-    const stickerRetailPrice = getProductRetailPrice(product);
+    const stickerRetailPrice = getProductRetailPrice(product, companySettings);
 
-    const maxSalePrice = product.maxSalePrice !== undefined && product.maxSalePrice !== null && Number(product.maxSalePrice) > 0
-      ? Number(product.maxSalePrice)
-      : stickerRetailPrice > 0
-      ? stickerRetailPrice
-      : calculatedMaxPrice > 0
-      ? calculatedMaxPrice
-      : Number(product.minSalePrice || 0);
+    const maxSalePrice = isFixedPolicy
+      ? (stickerRetailPrice > 0 ? stickerRetailPrice : calculatedMaxPrice)
+      : (product.maxSalePrice !== undefined && product.maxSalePrice !== null && Number(product.maxSalePrice) > 0
+          ? Number(product.maxSalePrice)
+          : stickerRetailPrice > 0
+          ? stickerRetailPrice
+          : calculatedMaxPrice > 0
+          ? calculatedMaxPrice
+          : Number(product.minSalePrice || 0));
 
     const minSalePrice = calculatedMinFloor > 0
       ? calculatedMinFloor
@@ -693,16 +710,30 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
     if (!item) return;
 
     const cost = item.purchasePrice || 0;
-    const minMarginThreshold =
-      typeof companySettings?.min_profit_margin === 'number'
-        ? companySettings.min_profit_margin
-        : typeof companySettings?.minProfitMargin === 'number'
-        ? companySettings.minProfitMargin
-        : 10;
+    const minMarginThreshold = isFixedPolicy
+      ? fixedProfitMarginSetting
+      : typeof companySettings?.min_profit_margin === 'number'
+      ? companySettings.min_profit_margin
+      : typeof companySettings?.minProfitMargin === 'number'
+      ? companySettings.minProfitMargin
+      : 15;
 
     const minFloor = cost > 0
       ? Math.round(cost * (1 + minMarginThreshold / 100))
       : (item.minSalePrice || 0);
+
+    if (isFixedPolicy && rawPrice !== minFloor) {
+      playAudioFeedback.warning();
+      updateUnitPrice(productId, minFloor);
+      setCartFloorNotice({
+        productId,
+        message: `Fixed Price Policy active: Unit price is fixed at ${currencySymbol} ${formatStockPrice(minFloor)} (Cost + ${fixedProfitMarginSetting}%).`,
+      });
+      setTimeout(() => {
+        setCartFloorNotice((prev) => (prev?.productId === productId ? null : prev));
+      }, 4500);
+      return;
+    }
 
     if (rawPrice < minFloor) {
       playAudioFeedback.warning();
@@ -1406,7 +1437,9 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
                 <tr>
                   <th className="py-2.5 px-4">Article</th>
                   <th className="py-2.5 px-3 text-center w-28">Quantity</th>
-                  <th className="py-2.5 px-3 text-right w-44">Unit Price (MRP / Floor)</th>
+                  <th className="py-2.5 px-3 text-right w-44">
+                    Unit Price {isFixedPolicy ? '(Fixed Policy)' : '(MRP / Floor)'}
+                  </th>
                   <th className="py-2.5 px-4 text-right w-32">Total</th>
                   <th className="py-2.5 px-3 text-center w-12"></th>
                 </tr>
@@ -1452,33 +1485,37 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
                     </tr>
                   ))}
                 {cart.map((item) => {
-                  // Minimum profit margin percentage configured in company settings (default: 10%)
-                  const minProfitMarginThreshold =
-                    typeof companySettings?.min_profit_margin === 'number'
-                      ? companySettings.min_profit_margin
-                      : typeof companySettings?.minProfitMargin === 'number'
-                      ? companySettings.minProfitMargin
-                      : 10;
+                  // Margin percentages configured in company settings
+                  const minProfitMarginThreshold = isFixedPolicy
+                    ? fixedProfitMarginSetting
+                    : typeof companySettings?.min_profit_margin === 'number'
+                    ? companySettings.min_profit_margin
+                    : typeof companySettings?.minProfitMargin === 'number'
+                    ? companySettings.minProfitMargin
+                    : 15;
 
-                  const maxProfitMarginThreshold =
-                    typeof companySettings?.max_profit_margin === 'number'
-                      ? companySettings.max_profit_margin
-                      : typeof companySettings?.maxProfitMargin === 'number'
-                      ? companySettings.maxProfitMargin
-                      : typeof companySettings?.max_profit_margin_percent === 'number'
-                      ? companySettings.max_profit_margin_percent
-                      : 30;
+                  const maxProfitMarginThreshold = isFixedPolicy
+                    ? fixedProfitMarginSetting
+                    : typeof companySettings?.max_profit_margin === 'number'
+                    ? companySettings.max_profit_margin
+                    : typeof companySettings?.maxProfitMargin === 'number'
+                    ? companySettings.maxProfitMargin
+                    : typeof companySettings?.max_profit_margin_percent === 'number'
+                    ? companySettings.max_profit_margin_percent
+                    : 30;
 
                   const cost = item.purchasePrice || 0;
                   const itemMinFloor = cost > 0
                     ? Math.round(cost * (1 + minProfitMarginThreshold / 100))
                     : (item.minSalePrice || 0);
 
-                  const itemMaxPrice = item.maxSalePrice && item.maxSalePrice > 0
-                    ? item.maxSalePrice
-                    : cost > 0
-                    ? Math.round(cost * (1 + maxProfitMarginThreshold / 100))
-                    : item.unitPrice;
+                  const itemMaxPrice = isFixedPolicy
+                    ? (cost > 0 ? Math.round(cost * (1 + fixedProfitMarginSetting / 100)) : item.unitPrice)
+                    : (item.maxSalePrice && item.maxSalePrice > 0
+                      ? item.maxSalePrice
+                      : cost > 0
+                      ? Math.round(cost * (1 + maxProfitMarginThreshold / 100))
+                      : item.unitPrice);
 
                   // Effective sale price per unit
                   const effectiveUnitPrice = item.unitPrice;
@@ -1564,43 +1601,61 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
                         </div>
                       </td>
 
-                      {/* Unit Price (Directly Editable in Cart with Floor Protection) */}
+                      {/* Unit Price (Directly Editable in Negotiable Mode, Fixed in Fixed Mode) */}
                       <td className="py-3 px-3 text-right align-top">
                         <div className="flex flex-col items-end">
                           <div className="inline-flex items-center justify-end space-x-1">
                             <span className="text-slate-400 dark:text-slate-500 font-mono text-xs">{currencySymbol}</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={item.unitPrice}
-                              onChange={(e) => {
-                                const val = Math.round(parseFloat(cleanStockPriceInput(e.target.value)) || 0);
-                                updateUnitPrice(item.productId, val);
-                              }}
-                              onBlur={(e) => {
-                                const val = Math.round(parseFloat(cleanStockPriceInput(e.target.value)) || 0);
-                                handleCartPriceBlur(item.productId, val);
-                              }}
-                              className={`w-24 text-right px-2 py-1 rounded-lg border font-mono text-xs font-bold outline-none transition focus:ring-2 ${
-                                isBelowFloor
-                                  ? 'border-rose-400 dark:border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-950 dark:text-rose-200 ring-1 ring-rose-300 dark:ring-rose-800 focus:border-rose-600 focus:ring-rose-200'
-                                  : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white focus:border-blue-600 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-950/50'
-                              }`}
-                              title={`Cost: ${currencySymbol} ${formatStockPrice(cost)} | MRP: ${currencySymbol} ${formatStockPrice(itemMaxPrice)} | Floor: ${currencySymbol} ${formatStockPrice(itemMinFloor)}`}
-                            />
+                            {isFixedPolicy ? (
+                              <input
+                                type="number"
+                                readOnly
+                                disabled
+                                value={item.unitPrice}
+                                className="w-24 text-right px-2 py-1 rounded-lg border font-mono text-xs font-bold bg-slate-100 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 border-purple-200 dark:border-purple-800 cursor-not-allowed select-none"
+                                title={`Fixed Price Policy active: ${currencySymbol} ${formatStockPrice(item.unitPrice)} (Cost + ${fixedProfitMarginSetting}%). Non-negotiable at POS.`}
+                              />
+                            ) : (
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={item.unitPrice}
+                                onChange={(e) => {
+                                  const val = Math.round(parseFloat(cleanStockPriceInput(e.target.value)) || 0);
+                                  updateUnitPrice(item.productId, val);
+                                }}
+                                onBlur={(e) => {
+                                  const val = Math.round(parseFloat(cleanStockPriceInput(e.target.value)) || 0);
+                                  handleCartPriceBlur(item.productId, val);
+                                }}
+                                className={`w-24 text-right px-2 py-1 rounded-lg border font-mono text-xs font-bold outline-none transition focus:ring-2 ${
+                                  isBelowFloor
+                                    ? 'border-rose-400 dark:border-rose-600 bg-rose-50 dark:bg-rose-950/40 text-rose-950 dark:text-rose-200 ring-1 ring-rose-300 dark:ring-rose-800 focus:border-rose-600 focus:ring-rose-200'
+                                    : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0A0E1A] text-slate-900 dark:text-white focus:border-blue-600 dark:focus:border-blue-500 focus:ring-blue-100 dark:focus:ring-blue-950/50'
+                                }`}
+                                title={`Cost: ${currencySymbol} ${formatStockPrice(cost)} | MRP: ${currencySymbol} ${formatStockPrice(itemMaxPrice)} | Floor: ${currencySymbol} ${formatStockPrice(itemMinFloor)}`}
+                              />
+                            )}
                           </div>
 
-                          {/* Reference: MRP and Minimum Floor */}
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-1 space-y-0.5 text-right">
-                            <div className="text-blue-600 dark:text-blue-400 font-medium">
-                              MRP: <strong className="font-bold">{currencySymbol} {formatStockPrice(itemMaxPrice)}</strong>
+                          {/* Reference: Fixed Policy vs Negotiable MRP and Minimum Floor */}
+                          {isFixedPolicy ? (
+                            <div className="text-[10px] text-purple-700 dark:text-purple-400 font-mono mt-1 space-y-0.5 text-right flex items-center justify-end gap-1">
+                              <Lock className="w-3 h-3 text-purple-500 shrink-0" />
+                              <span>Fixed ({fixedProfitMarginSetting}%)</span>
                             </div>
-                            <div className="text-slate-600 dark:text-slate-400">
-                              Floor: <strong className="font-semibold text-slate-800 dark:text-slate-200">{currencySymbol} {formatStockPrice(itemMinFloor)}</strong>
-                              <span className="text-[9px] text-slate-400 ml-0.5">({minProfitMarginThreshold}%)</span>
+                          ) : (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-1 space-y-0.5 text-right">
+                              <div className="text-blue-600 dark:text-blue-400 font-medium">
+                                Tag: <strong className="font-bold">{currencySymbol} {formatStockPrice(itemMaxPrice)}</strong>
+                              </div>
+                              <div className="text-slate-600 dark:text-slate-400">
+                                Floor: <strong className="font-semibold text-slate-800 dark:text-slate-200">{currencySymbol} {formatStockPrice(itemMinFloor)}</strong>
+                                <span className="text-[9px] text-slate-400 ml-0.5">({minProfitMarginThreshold}%)</span>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Notice when auto-clamped upon blur */}
                           {cartFloorNotice?.productId === item.productId && (

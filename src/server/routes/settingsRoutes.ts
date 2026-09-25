@@ -130,6 +130,12 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
     const maxProfitMargin = rawMaxMargin !== undefined && rawMaxMargin !== null && rawMaxMargin !== ''
       ? Math.max(0, Math.min(1000, parseFloat(rawMaxMargin) || 0))
       : 30;
+    const rawFixedMargin = req.body.fixed_profit_margin !== undefined ? req.body.fixed_profit_margin : req.body.fixedProfitMargin;
+    const fixedProfitMargin = rawFixedMargin !== undefined && rawFixedMargin !== null && rawFixedMargin !== ''
+      ? Math.max(0, Math.min(1000, parseFloat(rawFixedMargin) || 0))
+      : 30;
+    const rawPricingMode = String(req.body.pricing_mode || req.body.pricingMode || 'NEGOTIABLE').toUpperCase();
+    const pricingMode = rawPricingMode === 'FIXED' ? 'FIXED' : 'NEGOTIABLE';
     const currencyCode = req.body.currency || 'PKR';
 
     // 1. Validations: Company Profile
@@ -172,7 +178,8 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
          strn = $5, tax_id = $6, tax_number = $6, website = $7, logo = $8,
          currency_name = $9, currency = $10, currency_symbol = $11,
          barcode_prefix = $12, purchase_prefix = $13, invoice_prefix = $14,
-         invoice_footer = $15, low_stock_limit = $16, min_profit_margin = $17, max_profit_margin = $18, updated_at = NOW()
+         invoice_footer = $15, low_stock_limit = $16, min_profit_margin = $17, max_profit_margin = $18,
+         pricing_mode = $19, fixed_profit_margin = $20, updated_at = NOW()
        WHERE id = (SELECT id FROM company_settings LIMIT 1)
        RETURNING *`,
       [
@@ -194,17 +201,26 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
         lowStockLimit,
         minProfitMargin,
         maxProfitMargin,
+        pricingMode,
+        fixedProfitMargin,
       ]
     );
 
-    // Automatically synchronize products' minimum price to Cost Price + Minimum Profit Margin
+    // Automatically synchronize products based on pricing policy
     try {
-      await pgClient.query(
-        'UPDATE products SET min_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2) WHERE purchase_price > 0',
-        [minProfitMargin]
-      );
+      if (pricingMode === 'FIXED') {
+        await pgClient.query(
+          'UPDATE products SET min_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2), max_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2) WHERE purchase_price > 0',
+          [fixedProfitMargin]
+        );
+      } else {
+        await pgClient.query(
+          'UPDATE products SET min_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2), max_sale_price = ROUND(purchase_price * (1 + $2 / 100.0), 2) WHERE purchase_price > 0',
+          [minProfitMargin, maxProfitMargin]
+        );
+      }
     } catch (syncErr) {
-      console.warn('Could not batch synchronize products min_sale_price:', syncErr);
+      console.warn('Could not batch synchronize products pricing:', syncErr);
     }
 
     const s: any = updateRes.rows[0];
@@ -245,6 +261,10 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
         invoiceFooter: s.invoice_footer,
         invoice_footer: s.invoice_footer,
         lowStockLimit: s.low_stock_limit,
+        pricingMode: (s.pricing_mode || 'NEGOTIABLE').toUpperCase(),
+        pricing_mode: (s.pricing_mode || 'NEGOTIABLE').toUpperCase(),
+        fixedProfitMargin: parseFloat(s.fixed_profit_margin ?? '30') || 30,
+        fixed_profit_margin: parseFloat(s.fixed_profit_margin ?? '30') || 30,
         minProfitMargin: parseFloat(s.min_profit_margin ?? '10') || 10,
         min_profit_margin: parseFloat(s.min_profit_margin ?? '10') || 10,
         maxProfitMargin: parseFloat(s.max_profit_margin ?? '30') || 30,

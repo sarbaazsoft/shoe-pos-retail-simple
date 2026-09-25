@@ -135,6 +135,7 @@ export interface Product {
   primaryImageUrl: string;
   description?: string;
   purchasePrice: number;
+  costPrice?: number;
   minSalePrice: number;
   maxSalePrice?: number;
   totalStock: number;
@@ -187,6 +188,7 @@ export interface CartItem {
   minSalePrice: number;
   maxSalePrice?: number;
   purchasePrice: number;
+  costPrice?: number;
   discount: number;
   total: number;
   totalStock: number;

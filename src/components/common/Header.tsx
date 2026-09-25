@@ -27,7 +27,6 @@ import {
   ShieldCheck,
   User,
   ShoppingCart,
-  Store,
   Tag,
   Layers,
   BookOpen,
@@ -95,12 +94,6 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   // Quick navigation screens list
-  const storeName =
-    _companySettings?.name ||
-    _companySettings?.company_name ||
-    _companySettings?.companyName ||
-    'TJ Shoes';
-
   const userRole = (currentUser?.role || '').toLowerCase();
   const isCashier = userRole === 'cashier';
 
@@ -267,8 +260,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="px-4 rounded-b-lg border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg shadow-lg transition-colors duration-500 sticky top-0 z-30 select-none text-slate-800 dark:text-slate-100 flex items-center justify-between gap-2.5 sm:gap-4 min-h-[3.6rem] py-1.5 no-print">
-      {/* LEFT: Logo / Branding + Primary Navigation Tabs */}
-      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+      {/* LEFT: Mobile Menu Toggle Button (< lg) */}
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Mobile Menu Toggle Button (< lg) */}
         <button
           type="button"
@@ -278,82 +271,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Menu className="w-4 h-4 stroke-[2.2]" />
         </button>
-
-        {/* Existing Store Logo & Branding */}
-        <button
-          type="button"
-          onClick={() => onTabChange?.(isCashier ? 'pos' : 'dashboard')}
-          className="flex items-center gap-2 px-1.5 py-1 rounded-lg hover:bg-slate-100/70 dark:hover:bg-white/5 transition shrink-0 cursor-pointer text-left group"
-          title={`Switch to ${isCashier ? 'POS Terminal' : 'Dashboard'}`}
-        >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 via-indigo-600 to-purple-700 text-white flex items-center justify-center font-bold shadow-sm shadow-purple-600/25 dark:shadow-[0_0_12px_rgba(147,51,234,0.35)] border border-purple-400/40 shrink-0 group-hover:scale-105 transition-transform">
-            <Store className="w-4 h-4" />
-          </div>
-          <div className="hidden xl:block min-w-0">
-            <span className="font-bold text-slate-900 dark:text-white text-xs tracking-tight truncate block leading-tight">
-              {storeName}
-            </span>
-            <span className="text-[10px] text-purple-600 dark:text-purple-300 font-semibold flex items-center gap-1 leading-none mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-              <span>{isCashier ? 'Cashier Mode' : 'Online Store'}</span>
-            </span>
-          </div>
-        </button>
-
-        {/* Subtle separator */}
-        <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-indigo-500/20 shrink-0" />
-
-        {/* Primary Horizontal Navigation Tabs */}
-        <nav
-          className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1 min-w-0 flex-1"
-          aria-label="Main Navigation"
-        >
-          {availableScreens.map((screen) => {
-            const isActive = currentTab === screen.id;
-            const Icon = screen.icon;
-            return (
-              <button
-                key={screen.id}
-                type="button"
-                data-tab={screen.id}
-                data-active={isActive ? 'true' : 'false'}
-                aria-selected={isActive}
-                onClick={() => onTabChange?.(screen.id)}
-                className={`tab-underline-link relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors duration-200 shrink-0 whitespace-nowrap cursor-pointer select-none ${
-                  isActive
-                    ? 'text-purple-700 dark:text-purple-200 font-bold bg-purple-50/70 dark:bg-purple-500/15'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-200 hover:bg-purple-50/60 dark:hover:bg-purple-500/10'
-                }`}
-                title={screen.shortcut ? `${screen.label} (${screen.shortcut})` : screen.label}
-              >
-                {Icon && (
-                  <Icon
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                      isActive
-                        ? 'text-purple-600 dark:text-purple-300 stroke-[2.2]'
-                        : 'text-slate-400 dark:text-slate-400 stroke-[1.8]'
-                    }`}
-                  />
-                )}
-                <span>{screen.label}</span>
-
-                {/* Animated connected indicator that travels smoothly from previous tab to next tab */}
-                {isActive && (
-                  <motion.div
-                    layoutId="header-active-nav-underline"
-                    className="absolute bottom-0 left-1 right-1 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none"
-                    transition={{
-                      type: 'spring',
-                      stiffness: 420,
-                      damping: 34,
-                      mass: 0.8,
-                    }}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </nav>
       </div>
 
       {/* RIGHT: Notifications, Search, Theme Dropdown, and User Profile */}

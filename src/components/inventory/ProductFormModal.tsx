@@ -39,7 +39,7 @@ import {
 } from '../../utils/sku.ts';
 import { BarcodeSvg } from '../common/BarcodeSvg.tsx';
 import { AiProductSuggester } from './AiProductSuggester.tsx';
-import { cleanStockPriceInput, formatStockPrice } from '../../utils/priceFormat.ts';
+import { cleanStockPriceInput, formatStockPrice, getProductRetailPrice, getProductMinFloorPrice } from '../../utils/priceFormat.ts';
 import {
   calculateAutomaticPricing,
   smartRoundUp,
@@ -642,21 +642,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const validateStep2 = (): boolean => {
     setErrorMessage(null);
     if (purchasePrice === '' || Number(purchasePrice) < 0) {
-      setErrorMessage('Please enter a valid Purchase Cost Price (0 or greater).');
-      return false;
-    }
-    if (maxSalePrice === '' || Number(maxSalePrice) < 0) {
-      setErrorMessage('Please enter a valid Maximum Sale Price (0 or greater).');
-      return false;
-    }
-    const costNum = Math.round(Number(purchasePrice));
-    const floor = costNum > 0 ? minProfitFloor : 0;
-    if (costNum > 0 && Number(maxSalePrice) < floor) {
-      setMaxSalePrice(floor);
-      playAudioFeedback.warning();
-      setErrorMessage(
-        `Maximum Sale Price cannot be set below the Minimum Profit Floor (${currencySymbol} ${formatStockPrice(floor)}). Price has been clamped to the floor.`
-      );
+      setErrorMessage('Please enter a valid Cost Price (0 or greater).');
       return false;
     }
     return true;
@@ -748,13 +734,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const finalBarcodeToSave = barcode.trim();
 
       const costNum = Math.round(Number(purchasePrice));
-      const pricing = computePricing(costNum, marginType, activeMinMargin, activeMaxMargin);
-
-      const userMax = typeof maxSalePrice === 'number' ? smartRoundUp(maxSalePrice) : 0;
-      const userMin = typeof minSalePrice === 'number' ? smartRoundUp(minSalePrice) : 0;
-
-      const effectiveMinNum = userMin > 0 ? Math.max(pricing.minProfitPrice, userMin) : pricing.minProfitPrice;
-      const effectiveMaxNum = userMax > 0 ? Math.max(effectiveMinNum, userMax) : pricing.maxProfitPrice;
+      const autoTagPrice = getProductRetailPrice({ costPrice: costNum, purchasePrice: costNum }, companySettings);
+      const autoMinFloor = getProductMinFloorPrice({ costPrice: costNum, purchasePrice: costNum }, companySettings);
 
       const payload = {
         name: productName.trim() || cleanArticle,
@@ -765,9 +746,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         barcode: finalBarcodeToSave,
         primaryImageUrl: primaryImageUrl.trim(),
         description: description.trim(),
+        costPrice: costNum,
         purchasePrice: costNum,
-        maxSalePrice: effectiveMaxNum,
-        minSalePrice: effectiveMinNum,
+        maxSalePrice: autoTagPrice || costNum,
+        minSalePrice: autoMinFloor || costNum,
         totalStock: totalStock === '' ? 0 : Math.round(Number(totalStock)),
         lowStockLimit: product?.lowStockLimit !== undefined ? product.lowStockLimit : 5,
       };
@@ -1227,280 +1209,168 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* STEP 2: PRICING SPECIFICATIONS                            */}
+          {/* STEP 2: COST PRICE (REAL-TIME PRICING POLICY APPLIED)     */}
           {/* ========================================================= */}
-          {currentStep === 2 && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              {/* AUTOMATIC PRICING & SMART-ROUNDING ENGINE */}
-              <AutomaticPricingCard
-                costPrice={purchasePrice}
-                defaultMinMargin={minProfitMarginThreshold}
-                defaultMaxMargin={maxProfitMarginThreshold}
-                currencySymbol={currencySymbol}
-                allowMarginCustomization={true}
-                marginType={marginType}
-                minMargin={activeMinMargin}
-                maxMargin={activeMaxMargin}
-                onMarginTypeChange={handleMarginTypeChange}
-                onMinMarginChange={handleMinMarginChange}
-                onMaxMarginChange={handleMaxMarginChange}
-              />
+          {currentStep === 2 && (() => {
+            const rawPricingMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+            const isFixedPolicy = rawPricingMode === 'FIXED';
+            const fixedMargin =
+              typeof companySettings?.fixed_profit_margin === 'number'
+                ? companySettings.fixed_profit_margin
+                : typeof companySettings?.fixedProfitMargin === 'number'
+                ? companySettings.fixedProfitMargin
+                : 30;
+            const minMargin =
+              typeof companySettings?.min_profit_margin === 'number'
+                ? companySettings.min_profit_margin
+                : typeof companySettings?.minProfitMargin === 'number'
+                ? companySettings.minProfitMargin
+                : 15;
+            const maxMargin =
+              typeof companySettings?.max_profit_margin === 'number'
+                ? companySettings.max_profit_margin
+                : typeof companySettings?.maxProfitMargin === 'number'
+                ? companySettings.maxProfitMargin
+                : 30;
 
-              <div className="bg-white dark:bg-gradient-to-b dark:from-[#131B2E]/90 dark:to-[#0A0E1A]/80 p-5 rounded-2xl border border-gray-200 dark:border-[#1A263D] shadow-xs dark:shadow-[0_0_20px_rgba(59,130,246,0.05)] space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-indigo-600 dark:text-blue-400" />
-                    <h4 className="font-bold text-gray-900 dark:text-white text-sm">Fine-Tune Price Points</h4>
+            const costVal = typeof purchasePrice === 'number' ? purchasePrice : 0;
+            const realTimeTagPrice = getProductRetailPrice({ costPrice: costVal, purchasePrice: costVal }, companySettings);
+            const realTimeMinFloor = getProductMinFloorPrice({ costPrice: costVal, purchasePrice: costVal }, companySettings);
+
+            return (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Single Cost Price Input Card */}
+                <div className="bg-white dark:bg-gradient-to-b dark:from-[#131B2E]/90 dark:to-[#0A0E1A]/80 p-5 rounded-2xl border border-gray-200 dark:border-[#1A263D] shadow-xs space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-indigo-600 dark:text-blue-400" />
+                      <h4 className="font-bold text-gray-900 dark:text-white text-sm">Product Cost Price</h4>
+                    </div>
+                    <span className="text-[11px] text-gray-400 dark:text-slate-500 font-medium">Step 2 of 3</span>
                   </div>
-                  <span className="text-[11px] text-gray-400 dark:text-slate-500">Step 2 of 3</span>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* 1. Purchase Cost Price */}
                   <div className="p-4 bg-slate-50 dark:bg-[#070B14] border border-gray-200 dark:border-slate-800 rounded-2xl space-y-2">
                     <label className="block font-bold text-gray-900 dark:text-slate-200 text-xs">
-                      Cost Price <span className="text-red-500">*</span>
+                      Cost Price (costPrice) <span className="text-red-500">*</span>
                     </label>
                     <p className="text-[11px] text-gray-500 dark:text-slate-400">
-                      Procurement cost per shoe pair paid to supplier or factory.
+                      Procurement cost per shoe pair paid to supplier or factory. All selling prices, sticker labels, and POS limits are calculated automatically from this cost price in real time.
                     </p>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 font-mono font-bold text-xs">
+                    <div className="relative max-w-md">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400 font-mono font-bold text-base">
                         {currencySymbol}
                       </span>
                       <input
+                        id="product-cost-price-input"
                         type="number"
                         min="0"
                         step="1"
                         required
+                        autoFocus
                         placeholder="0"
                         value={purchasePrice}
                         onChange={(e) => handlePurchasePriceChange(e.target.value)}
                         onBlur={(e) => handlePurchasePriceBlur(e.target.value)}
-                        className="w-full pl-11 pr-3 py-2.5 bg-white dark:bg-[#0B101D] border border-gray-300 dark:border-slate-700 rounded-xl font-mono font-bold text-sm text-gray-900 dark:text-white outline-none focus:border-indigo-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-blue-950"
+                        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-[#0B101D] border-2 border-indigo-200 dark:border-indigo-800/80 rounded-xl font-mono font-black text-lg text-gray-950 dark:text-white outline-none focus:border-indigo-600 dark:focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-950/50 shadow-xs"
                       />
                     </div>
-                    {cost > 0 && (
+                    {costVal > 0 && (
                       <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                        Clean Rounded Cost: {currencySymbol} {formatStockPrice(currentPricing.roundedCostPrice || cost)}
+                        Base Cost: {currencySymbol} {formatStockPrice(costVal)}
                       </div>
                     )}
                   </div>
-
-                  {/* 2. Minimum Profit Price */}
-                  <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-700/30 rounded-2xl space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="block font-bold text-amber-950 dark:text-amber-300 text-xs flex items-center gap-1">
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                        Min Profit Price
-                      </label>
-                      <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
-                        Floor Price
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-amber-800/80 dark:text-amber-400/80">
-                      Minimum selling boundary (Cost + Min Margin, smart-rounded upward).
-                    </p>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-600 dark:text-amber-400 font-mono font-bold text-xs">
-                        {currencySymbol}
-                      </span>
-                      <input
-                        id="product-min-sale-price-input"
-                        type="number"
-                        min={cost}
-                        step="1"
-                        placeholder={String(minProfitFloor || 0)}
-                        value={minSalePrice}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === '') {
-                            setMinSalePrice('');
-                          } else {
-                            const num = parseInt(val, 10);
-                            setMinSalePrice(isNaN(num) ? '' : num);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const cleaned = cleanStockPriceInput(e.target.value);
-                          if (cleaned !== '') {
-                            const parsed = parseInt(cleaned, 10);
-                            if (!isNaN(parsed)) {
-                              const rounded = smartRoundUp(parsed);
-                              const safeMin = cost > 0 ? Math.max(minProfitFloor, rounded) : rounded;
-                              setMinSalePrice(safeMin);
-                            }
-                          }
-                        }}
-                        className="w-full pl-11 pr-3 py-2.5 bg-white dark:bg-[#0B101D] border border-amber-300 dark:border-amber-700/40 rounded-xl font-mono font-bold text-sm text-amber-950 dark:text-amber-300 outline-none focus:border-amber-600 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:focus:ring-amber-950"
-                      />
-                    </div>
-                    <div className="text-[10px] text-amber-800 dark:text-amber-400">
-                      <span>Floor: {currencySymbol} {formatStockPrice(minProfitFloor)}</span>
-                    </div>
-                  </div>
-
-                  {/* 3. Maximum Sale Price (MRP) */}
-                  <div
-                    className={`p-4 rounded-2xl border transition space-y-2 ${
-                      isBelowFloor
-                        ? 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-300 dark:border-rose-700/40'
-                        : 'bg-indigo-50/50 dark:bg-blue-950/20 border-indigo-200 dark:border-blue-700/30'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <label className="block font-bold text-gray-900 dark:text-white text-xs flex items-center gap-1">
-                        <Tag className="w-3.5 h-3.5 text-indigo-600 dark:text-blue-400" />
-                        Max Sale Price (M.R.P.) <span className="text-red-500">*</span>
-                      </label>
-                      <span className="text-[10px] font-bold text-indigo-700 dark:text-blue-300 bg-indigo-100/80 dark:bg-blue-900/40 px-1.5 py-0.5 rounded">
-                        Tag Price
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                      Ceiling / tag retail price (Cost + Max Margin, smart-rounded upward).
-                    </p>
-                    <div className="relative">
-                      <span
-                        className={`absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-xs ${
-                          isBelowFloor ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-blue-400'
-                        }`}
-                      >
-                        {currencySymbol}
-                      </span>
-                      <input
-                        id="product-max-sale-price-input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        required
-                        placeholder="0"
-                        value={maxSalePrice}
-                        onChange={(e) => handleMaxSalePriceChange(e.target.value)}
-                        onBlur={(e) => handleMaxSalePriceBlur(e.target.value)}
-                        className={`w-full pl-11 pr-3 py-2.5 bg-white dark:bg-[#0B101D] border-2 rounded-xl font-mono font-bold text-sm outline-none transition shadow-2xs ${
-                          isBelowFloor
-                            ? 'border-rose-500 text-rose-950 dark:text-rose-300 focus:border-rose-600 focus:ring-2 focus:ring-rose-200 dark:focus:ring-rose-950'
-                            : 'border-indigo-300 dark:border-blue-700/50 text-gray-950 dark:text-white focus:border-indigo-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-blue-950'
-                        }`}
-                      />
-                    </div>
-
-                    {/* Minimum Profit Margin Floor Reference */}
-                    <div className="text-[10px] text-slate-600 dark:text-slate-400">
-                      <span>Auto MRP: {currencySymbol} {formatStockPrice(autoMaxPrice)}</span>
-                    </div>
-                  </div>
                 </div>
 
-                {/* Alert when entered price is below minimum profit floor */}
-                {isBelowFloor && (
-                  <div
-                    id="product-price-below-floor-alert"
-                    className="p-2.5 bg-rose-100/90 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl text-rose-900 dark:text-rose-300 text-xs flex items-center gap-2 shadow-2xs animate-in fade-in duration-150"
-                  >
-                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                    <span>
-                      Price is below minimum profit floor of{' '}
-                      <strong>
-                        {currencySymbol} {formatStockPrice(minProfitFloor)}
-                      </strong>{' '}
-                      (Cost +{' '}
-                      {marginType === 'percent'
-                        ? `${activeMinMargin}%`
-                        : `${currencySymbol} ${activeMinMargin}`}{' '}
-                      min margin).
-                    </span>
-                  </div>
-                )}
-
-                {/* Clamped to floor success feedback */}
-                {priceFloorNotice && (
-                  <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/40 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between shadow-2xs animate-in fade-in duration-150">
-                    <div className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span>{priceFloorNotice}</span>
+                {/* Real-time Dynamic Calculated Prices Breakdown Card */}
+                <div className="bg-white dark:bg-gradient-to-b dark:from-[#131B2E]/90 dark:to-[#0A0E1A]/80 p-5 rounded-2xl border border-gray-200 dark:border-[#1A263D] shadow-xs space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <h4 className="font-bold text-gray-900 dark:text-white text-sm">
+                        Real-Time Selling Prices (Store Pricing Policy)
+                      </h4>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setPriceFloorNotice(null)}
-                      className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-950 dark:hover:text-white font-bold ml-2 cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Profit & Margin Intelligence Card */}
-              <div className="bg-white dark:bg-gradient-to-b dark:from-[#131B2E]/90 dark:to-[#0A0E1A]/80 p-5 rounded-2xl border border-gray-200 dark:border-[#1A263D] shadow-xs dark:shadow-[0_0_20px_rgba(59,130,246,0.05)] space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <h5 className="font-bold text-xs uppercase tracking-wider text-gray-800 dark:text-slate-200">
-                      Estimated Margin &amp; Profit Analysis (at Maximum Price)
-                    </h5>
-                  </div>
-                  {isLoss && (
-                    <span className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 font-bold text-[10px] flex items-center gap-1 border border-red-200 dark:border-red-800/50">
-                      <AlertCircle className="w-3 h-3" />
-                      Warning: Max Price Below Cost!
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 uppercase">
+                      {isFixedPolicy ? '1. Fixed Price Policy' : '2. Negotiable Price Policy'}
                     </span>
+                  </div>
+
+                  {isFixedPolicy ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60 space-y-1">
+                        <span className="text-[11px] font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider block">
+                          Tag &amp; POS Selling Price (Fixed)
+                        </span>
+                        <div className="text-2xl font-black font-mono text-purple-950 dark:text-white">
+                          {currencySymbol} {formatStockPrice(realTimeTagPrice)}
+                        </div>
+                        <p className="text-[11px] text-purple-800/80 dark:text-purple-300/80 mt-1">
+                          Cost Price + {fixedMargin}% Profit Margin. Calculated in real-time, printed on barcode stickers and shoe box labels, locked at POS.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#070B14] border border-gray-200 dark:border-slate-800 flex flex-col justify-center space-y-1">
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                          Gross Margin Realized
+                        </span>
+                        <div className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                          +{currencySymbol} {formatStockPrice(Math.max(0, realTimeTagPrice - costVal))} ({fixedMargin}%)
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                          Guaranteed gross profit return per pair in Fixed Price mode.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">
+                            Sticker Tag Price (M.R.P.)
+                          </span>
+                          <span className="text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 px-1.5 py-0.5 rounded">
+                            +{maxMargin}% Max
+                          </span>
+                        </div>
+                        <div className="text-2xl font-black font-mono text-indigo-950 dark:text-white">
+                          {currencySymbol} {formatStockPrice(realTimeTagPrice)}
+                        </div>
+                        <p className="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-1">
+                          Printed on barcode stickers &amp; shoe box labels. Initial retail price in POS cart.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
+                            Minimum POS Floor Price
+                          </span>
+                          <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded">
+                            +{minMargin}% Min
+                          </span>
+                        </div>
+                        <div className="text-2xl font-black font-mono text-amber-950 dark:text-amber-200">
+                          {currencySymbol} {formatStockPrice(realTimeMinFloor)}
+                        </div>
+                        <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-1">
+                          Lowest negotiable price allowed at checkout. Cashiers cannot sell below this floor.
+                        </p>
+                      </div>
+                    </div>
                   )}
-                </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070B14] border border-gray-100 dark:border-slate-800">
-                    <span className="text-[10px] text-gray-500 dark:text-slate-400 font-semibold block uppercase">Gross Profit / Unit</span>
-                    <span
-                      className={`text-sm font-mono font-bold ${
-                        grossProfit > 0 ? 'text-emerald-700 dark:text-emerald-400' : grossProfit < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-white'
-                      }`}
-                    >
-                      {currencySymbol} {formatStockPrice(grossProfit)}
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070B14] border border-gray-100 dark:border-slate-800">
-                    <span className="text-[10px] text-gray-500 dark:text-slate-400 font-semibold block uppercase">Profit Margin</span>
-                    <span
-                      className={`text-sm font-mono font-bold ${
-                        Number(marginPercent) > 0
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : Number(marginPercent) < 0
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-gray-800 dark:text-white'
-                      }`}
-                    >
-                      {marginPercent}%
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070B14] border border-gray-100 dark:border-slate-800">
-                    <span className="text-[10px] text-gray-500 dark:text-slate-400 font-semibold block uppercase">Markup</span>
-                    <span
-                      className={`text-sm font-mono font-bold ${
-                        Number(markupPercent) > 0
-                          ? 'text-indigo-600 dark:text-blue-400'
-                          : Number(markupPercent) < 0
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-gray-800 dark:text-white'
-                      }`}
-                    >
-                      {markupPercent}%
+                  {/* Real-time Dynamic Info Notice */}
+                  <div className="p-3 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl text-blue-900 dark:text-blue-300 text-xs flex items-center gap-2.5">
+                    <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>
+                      <strong>Real-Time Dynamic Pricing:</strong> If you change the profit margins (maximum or minimum) in Settings &rarr; Pricing Policy, all products immediately calculate new prices in real time. You do not need to update individual products.
                     </span>
                   </div>
                 </div>
-
-                <p className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1.5 pt-1">
-                  <Info className="w-3.5 h-3.5 text-indigo-600 dark:text-blue-400 shrink-0" />
-                  <span>
-                    Cashiers can sell between {currencySymbol} {formatStockPrice(effectiveMinSale)} (auto-minimum) and {currencySymbol} {formatStockPrice(effectiveMaxSale)} (maximum M.R.P.).
-                  </span>
-                </p>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ========================================================= */}
           {/* STEP 3: BARCODE & IDENTIFICATION (VALIDATED & EDITABLE)   */}

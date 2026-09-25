@@ -58,17 +58,54 @@ export function formatCurrency(
 
 /**
  * Returns the effective retail selling price (M.R.P. / Maximum Sale Price) for a product.
- * This is the exact price that appears on the shoe box barcode sticker and must be the
- * starting price in the POS cart when scanned or typed during checkout.
+ * Calculated in real-time dynamically from costPrice and company pricing policy.
+ * This is the exact price that appears on shoe box stickers and barcode stickers,
+ * and is the initial starting unit price in the POS cart when scanned or added.
  *
  * Precedence:
- * 1. maxSalePrice (or max_sale_price) if > 0
- * 2. minSalePrice (or min_sale_price) if > 0
- * 3. basePrice or salePrice if > 0
- * 4. 0 fallback
+ * 1. Real-time Calculation from Cost Price + Company Settings:
+ *    - FIXED Mode: Tag Price = Cost Price + Fixed Profit Margin
+ *    - NEGOTIABLE Mode: Tag Price = Cost Price + Maximum Profit Margin
+ * 2. Fallbacks if cost is 0 or settings absent:
+ *    - maxSalePrice / minSalePrice / basePrice
  */
-export function getProductRetailPrice(product: any): number {
+export function getProductRetailPrice(product: any, companySettings?: any): number {
   if (!product) return 0;
+
+  const cost = Number(
+    product.costPrice !== undefined && product.costPrice !== null
+      ? product.costPrice
+      : product.cost_price !== undefined && product.cost_price !== null
+      ? product.cost_price
+      : product.purchasePrice !== undefined && product.purchasePrice !== null
+      ? product.purchasePrice
+      : product.purchase_price !== undefined && product.purchase_price !== null
+      ? product.purchase_price
+      : 0
+  );
+
+  if (cost > 0) {
+    const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+    if (rawMode === 'FIXED') {
+      const fixedMargin =
+        typeof companySettings?.fixed_profit_margin === 'number'
+          ? companySettings.fixed_profit_margin
+          : typeof companySettings?.fixedProfitMargin === 'number'
+          ? companySettings.fixedProfitMargin
+          : parseFloat(companySettings?.fixed_profit_margin || companySettings?.fixedProfitMargin || '30') || 30;
+      return Math.round(cost * (1 + fixedMargin / 100));
+    } else {
+      // NEGOTIABLE: Tag price = Cost + Maximum Profit Margin
+      const maxMargin =
+        typeof companySettings?.max_profit_margin === 'number'
+          ? companySettings.max_profit_margin
+          : typeof companySettings?.maxProfitMargin === 'number'
+          ? companySettings.maxProfitMargin
+          : parseFloat(companySettings?.max_profit_margin || companySettings?.maxProfitMargin || '30') || 30;
+      return Math.round(cost * (1 + maxMargin / 100));
+    }
+  }
+
   const rawMax = product.maxSalePrice ?? product.max_sale_price;
   const max = Number(rawMax);
   if (!isNaN(max) && max > 0) return Math.round(max);
@@ -82,5 +119,83 @@ export function getProductRetailPrice(product: any): number {
   if (!isNaN(base) && base > 0) return Math.round(base);
 
   return 0;
+}
+
+/**
+ * Returns the minimum floor selling price for a product.
+ * In Fixed mode: equal to the fixed tag price.
+ * In Negotiable mode: Cost Price + Minimum Profit Margin (lowest price allowed at POS).
+ */
+export function getProductMinFloorPrice(product: any, companySettings?: any): number {
+  if (!product) return 0;
+
+  const cost = Number(
+    product.costPrice !== undefined && product.costPrice !== null
+      ? product.costPrice
+      : product.cost_price !== undefined && product.cost_price !== null
+      ? product.cost_price
+      : product.purchasePrice !== undefined && product.purchasePrice !== null
+      ? product.purchasePrice
+      : product.purchase_price !== undefined && product.purchase_price !== null
+      ? product.purchase_price
+      : 0
+  );
+
+  if (cost > 0) {
+    const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+    if (rawMode === 'FIXED') {
+      const fixedMargin =
+        typeof companySettings?.fixed_profit_margin === 'number'
+          ? companySettings.fixed_profit_margin
+          : typeof companySettings?.fixedProfitMargin === 'number'
+          ? companySettings.fixedProfitMargin
+          : parseFloat(companySettings?.fixed_profit_margin || companySettings?.fixedProfitMargin || '30') || 30;
+      return Math.round(cost * (1 + fixedMargin / 100));
+    } else {
+      // NEGOTIABLE: Minimum Floor = Cost + Minimum Profit Margin
+      const minMargin =
+        typeof companySettings?.min_profit_margin === 'number'
+          ? companySettings.min_profit_margin
+          : typeof companySettings?.minProfitMargin === 'number'
+          ? companySettings.minProfitMargin
+          : parseFloat(companySettings?.min_profit_margin || companySettings?.minProfitMargin || '15') || 15;
+      return Math.round(cost * (1 + minMargin / 100));
+    }
+  }
+
+  const rawMin = product.minSalePrice ?? product.min_sale_price;
+  const min = Number(rawMin);
+  if (!isNaN(min) && min > 0) return Math.round(min);
+
+  return 0;
+}
+
+/**
+ * Returns a comprehensive real-time pricing breakdown for a product.
+ */
+export function getProductRealtimePricing(product: any, companySettings?: any) {
+  const cost = Number(
+    product?.costPrice !== undefined && product?.costPrice !== null
+      ? product.costPrice
+      : product?.cost_price !== undefined && product?.cost_price !== null
+      ? product.cost_price
+      : product?.purchasePrice !== undefined && product?.purchasePrice !== null
+      ? product.purchasePrice
+      : product?.purchase_price !== undefined && product?.purchase_price !== null
+      ? product.purchase_price
+      : 0
+  );
+  const retailPrice = getProductRetailPrice(product, companySettings);
+  const minFloorPrice = getProductMinFloorPrice(product, companySettings);
+  const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+  const isFixed = rawMode === 'FIXED';
+
+  return {
+    costPrice: cost,
+    retailPrice,
+    minFloorPrice,
+    sellingPrice: retailPrice,
+    isFixed,
+  };
 }
 

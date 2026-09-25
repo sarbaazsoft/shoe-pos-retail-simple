@@ -30,6 +30,10 @@ import {
   UserPlus,
   X,
   KeyRound,
+  TrendingUp,
+  Sliders,
+  Percent,
+  Tag,
 } from 'lucide-react';
 import { api } from '../../services/api.ts';
 import { PrinterHardwareSettings } from './PrinterHardwareSettings.tsx';
@@ -90,8 +94,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     currency: companySettings?.currency || 'PKR',
     invoice_footer: companySettings?.invoice_footer || companySettings?.invoiceFooter || 'Exchanges accepted within 7 days with original sales receipt. Thank you for shopping with us!',
     low_stock_limit: companySettings?.low_stock_limit || companySettings?.lowStockLimit || 5,
-    min_profit_margin: companySettings?.min_profit_margin ?? companySettings?.minProfitMargin ?? 10,
-    max_profit_margin: companySettings?.max_profit_margin ?? companySettings?.maxProfitMargin ?? 30,
+    pricing_mode: (companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase(),
+    fixed_profit_margin: companySettings?.fixed_profit_margin !== undefined ? Number(companySettings.fixed_profit_margin) : (companySettings?.fixedProfitMargin !== undefined ? Number(companySettings.fixedProfitMargin) : 30),
+    min_profit_margin: companySettings?.min_profit_margin !== undefined ? Number(companySettings.min_profit_margin) : (companySettings?.minProfitMargin !== undefined ? Number(companySettings.minProfitMargin) : 15),
+    max_profit_margin: companySettings?.max_profit_margin !== undefined ? Number(companySettings.max_profit_margin) : (companySettings?.maxProfitMargin !== undefined ? Number(companySettings.maxProfitMargin) : 30),
   });
 
   useEffect(() => {
@@ -115,8 +121,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         currency: companySettings?.currency || 'PKR',
         invoice_footer: companySettings?.invoice_footer || companySettings?.invoiceFooter || '',
         low_stock_limit: companySettings?.low_stock_limit || companySettings?.lowStockLimit || 5,
-        min_profit_margin: companySettings?.min_profit_margin ?? companySettings?.minProfitMargin ?? 10,
-        max_profit_margin: companySettings?.max_profit_margin ?? companySettings?.maxProfitMargin ?? 30,
+        pricing_mode: (companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase(),
+        fixed_profit_margin: companySettings?.fixed_profit_margin !== undefined ? Number(companySettings.fixed_profit_margin) : (companySettings?.fixedProfitMargin !== undefined ? Number(companySettings.fixedProfitMargin) : 30),
+        min_profit_margin: companySettings?.min_profit_margin !== undefined ? Number(companySettings.min_profit_margin) : (companySettings?.minProfitMargin !== undefined ? Number(companySettings.minProfitMargin) : 15),
+        max_profit_margin: companySettings?.max_profit_margin !== undefined ? Number(companySettings.max_profit_margin) : (companySettings?.maxProfitMargin !== undefined ? Number(companySettings.maxProfitMargin) : 30),
       });
     }
   }, [companySettings]);
@@ -317,13 +325,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!formData.invoice_prefix.trim()) {
       errors.invoice_prefix = 'Invoice prefix is required (e.g., "INV-").';
     }
-    if (formData.min_profit_margin < 0) {
-      errors.min_profit_margin = 'Minimum profit margin cannot be negative.';
-    }
-    if (formData.max_profit_margin < 0) {
-      errors.max_profit_margin = 'Maximum profit margin cannot be negative.';
-    } else if (formData.max_profit_margin < formData.min_profit_margin) {
-      errors.max_profit_margin = 'Maximum profit margin cannot be less than minimum profit margin.';
+    if (formData.pricing_mode === 'FIXED') {
+      if (formData.fixed_profit_margin === undefined || formData.fixed_profit_margin < 0) {
+        errors.fixed_profit_margin = 'Fixed profit margin cannot be negative.';
+      }
+    } else {
+      if (formData.min_profit_margin === undefined || formData.min_profit_margin < 0) {
+        errors.min_profit_margin = 'Minimum price margin cannot be negative.';
+      }
+      if (formData.max_profit_margin === undefined || formData.max_profit_margin < 0) {
+        errors.max_profit_margin = 'Maximum price margin cannot be negative.';
+      } else if (formData.max_profit_margin < formData.min_profit_margin) {
+        errors.max_profit_margin = 'Maximum price margin cannot be less than minimum price margin.';
+      }
     }
 
     setFormErrors(errors);
@@ -1060,74 +1074,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Alerts POS when quantity falls at or below this limit</p>
               </div>
-
-              {/* Minimum Profit Margin Threshold */}
-              <div>
-                <label className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center justify-between">
-                  <span>
-                    Minimum Profit Margin (%)
-                  </span>
-                </label>
-                <div className="relative">
-                  <input
-                    id="setting-min-profit-margin"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={formData.min_profit_margin}
-                    onChange={(e) => {
-                      setFormData({ ...formData, min_profit_margin: Math.round(parseFloat(e.target.value) || 0) });
-                      if (formErrors.min_profit_margin) {
-                        setFormErrors({ ...formErrors, min_profit_margin: '' });
-                      }
-                    }}
-                    className={`w-full h-11 px-3.5 rounded-xl border bg-slate-50 dark:bg-[#060B18]/90 text-xs font-bold font-mono text-slate-900 dark:text-white outline-none transition-all ${
-                      formErrors.min_profit_margin
-                        ? 'border-rose-400 ring-2 ring-rose-500/20 bg-rose-50/10'
-                        : 'border-slate-300 dark:border-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
-                    }`}
-                  />
-                </div>
-                {formErrors.min_profit_margin && (
-                  <p className="text-rose-600 dark:text-rose-400 text-[11px] mt-1.5">{formErrors.min_profit_margin}</p>
-                )}
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Protects minimum price floor: Cost + Min %</p>
-              </div>
-
-              {/* Maximum Profit Margin Threshold */}
-              <div>
-                <label className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center justify-between">
-                  <span>
-                    Maximum Profit Margin (%)
-                  </span>
-                </label>
-                <div className="relative">
-                  <input
-                    id="setting-max-profit-margin"
-                    type="number"
-                    min="0"
-                    max="1000"
-                    step="1"
-                    value={formData.max_profit_margin}
-                    onChange={(e) => {
-                      setFormData({ ...formData, max_profit_margin: Math.round(parseFloat(e.target.value) || 0) });
-                      if (formErrors.max_profit_margin) {
-                        setFormErrors({ ...formErrors, max_profit_margin: '' });
-                      }
-                    }}
-                    className={`w-full h-11 px-3.5 rounded-xl border bg-slate-50 dark:bg-[#060B18]/90 text-xs font-bold font-mono text-slate-900 dark:text-white outline-none transition-all ${
-                      formErrors.max_profit_margin
-                        ? 'border-rose-400 ring-2 ring-rose-500/20 bg-rose-50/10'
-                        : 'border-slate-300 dark:border-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
-                    }`}
-                  />
-                </div>
-                {formErrors.max_profit_margin && (
-                  <p className="text-rose-600 dark:text-rose-400 text-[11px] mt-1.5">{formErrors.max_profit_margin}</p>
-                )}
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Auto-computes default retail MRP: Cost + Max %</p>
-              </div>
             </div>
 
             {/* Receipt Footer Note */}
@@ -1143,6 +1089,228 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="w-full p-3.5 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-[#060B18]/90 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 outline-none transition-all focus:border-blue-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-purple-500/20"
               />
             </div>
+          </div>
+
+          {/* CARD 3: PRICING POLICY (Fixed Price vs. Negotiable Price) */}
+          <div className="bg-white dark:bg-[#131B2E] p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-purple-800/60 shadow-sm transition-colors">
+            {/* Card Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 mb-5 border-b border-slate-100 dark:border-purple-900/40 gap-3">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-500/20 border border-purple-100 dark:border-purple-400/30 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0 shadow-2xs">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Pricing Policy</h3>
+                  <p className="text-xs text-slate-500 dark:text-purple-200/70 mt-0.5 font-normal">
+                    Select your retail pricing rule to calculate barcode tag prices and POS checkout limits
+                  </p>
+                </div>
+              </div>
+              <span className={`text-xs font-semibold px-3 py-1 rounded-xl border ${
+                formData.pricing_mode === 'FIXED'
+                  ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60'
+                  : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60'
+              }`}>
+                Active Policy: {formData.pricing_mode === 'FIXED' ? 'Fixed Price' : 'Negotiable Price'}
+              </span>
+            </div>
+
+            {/* TWO TABS BELOW CARD HEADER */}
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-[#0A0F1E] rounded-xl border border-slate-200 dark:border-slate-800 mb-6 max-w-md">
+              <button
+                type="button"
+                id="pricing-policy-tab-fixed"
+                onClick={() => setFormData({ ...formData, pricing_mode: 'FIXED' })}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  formData.pricing_mode === 'FIXED'
+                    ? 'bg-white dark:bg-purple-600 text-purple-700 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>1 Fixed Price</span>
+              </button>
+
+              <button
+                type="button"
+                id="pricing-policy-tab-negotiable"
+                onClick={() => setFormData({ ...formData, pricing_mode: 'NEGOTIABLE' })}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  formData.pricing_mode === 'NEGOTIABLE'
+                    ? 'bg-white dark:bg-purple-600 text-purple-700 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>2 Negotiatable Price</span>
+              </button>
+            </div>
+
+            {/* TAB 1 CONTENT: FIXED PRICING (1 INPUT) */}
+            {formData.pricing_mode === 'FIXED' && (
+              <div className="space-y-4">
+                <div className="max-w-md">
+                  <label className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center justify-between">
+                    <span>
+                      Profit Margin (%) <span className="text-rose-500 font-bold">*</span>
+                    </span>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium font-mono">
+                      Cost + {formData.fixed_profit_margin}%
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <Percent className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                    <input
+                      id="setting-fixed-profit-margin"
+                      type="number"
+                      min="0"
+                      max="1000"
+                      step="1"
+                      value={formData.fixed_profit_margin}
+                      onChange={(e) => {
+                        const val = Math.max(0, Math.round(parseFloat(e.target.value) || 0));
+                        setFormData({ ...formData, fixed_profit_margin: val });
+                        if (formErrors.fixed_profit_margin) {
+                          setFormErrors({ ...formErrors, fixed_profit_margin: '' });
+                        }
+                      }}
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl border bg-slate-50 dark:bg-[#060B18]/90 text-xs font-bold font-mono text-slate-900 dark:text-white outline-none transition-all border-slate-300 dark:border-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                      placeholder="e.g. 30"
+                    />
+                  </div>
+                  {formErrors.fixed_profit_margin && (
+                    <p className="text-rose-600 dark:text-rose-400 text-[11px] mt-1.5">{formErrors.fixed_profit_margin}</p>
+                  )}
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+                    Fixed profit margin applied across all products. Tag Price &amp; Selling Price = Cost Price + Profit Margin.
+                  </p>
+                </div>
+
+                {/* Calculation Rule & Live Preview */}
+                <div className="p-4 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-purple-900 dark:text-purple-200">
+                    <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                    <span>Fixed Pricing Rule</span>
+                  </div>
+                  <p className="text-[11.5px] text-purple-800/90 dark:text-purple-300/90 leading-relaxed">
+                    When Fixed Price policy is selected, the barcode sticker tag price and selling price are calculated as: <strong>Cost Price + Profit Margin</strong>. At POS checkout, the price is strictly fixed and cannot be changed.
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-purple-200/80 dark:border-purple-800/40 flex flex-wrap items-center gap-3 text-xs font-mono text-purple-950 dark:text-purple-200">
+                    <span>Example: Cost = {formData.currency_symbol} 1,000</span>
+                    <span>&rarr;</span>
+                    <span className="font-bold bg-white dark:bg-purple-900/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-700">
+                      Tag &amp; POS Price = {formData.currency_symbol} {Math.round(1000 * (1 + (formData.fixed_profit_margin || 0) / 100)).toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-purple-700 dark:text-purple-400 font-semibold">(Non-negotiable at POS counter)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2 CONTENT: NEGOTIABLE PRICING (2 INPUTS) */}
+            {formData.pricing_mode === 'NEGOTIABLE' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-2xl">
+                  {/* Input 1: Minimum Profit Margin (%) */}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center justify-between">
+                      <span>
+                        Minimum Price Margin (%) <span className="text-rose-500 font-bold">*</span>
+                      </span>
+                      <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium font-mono">
+                        Floor: Cost + {formData.min_profit_margin}%
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <Percent className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                      <input
+                        id="setting-min-profit-margin"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={formData.min_profit_margin}
+                        onChange={(e) => {
+                          const val = Math.max(0, Math.round(parseFloat(e.target.value) || 0));
+                          setFormData({ ...formData, min_profit_margin: val });
+                          if (formErrors.min_profit_margin) {
+                            setFormErrors({ ...formErrors, min_profit_margin: '' });
+                          }
+                        }}
+                        className="w-full h-11 pl-10 pr-3.5 rounded-xl border bg-slate-50 dark:bg-[#060B18]/90 text-xs font-bold font-mono text-slate-900 dark:text-white outline-none transition-all border-slate-300 dark:border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                        placeholder="e.g. 15"
+                      />
+                    </div>
+                    {formErrors.min_profit_margin && (
+                      <p className="text-rose-600 dark:text-rose-400 text-[11px] mt-1.5">{formErrors.min_profit_margin}</p>
+                    )}
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+                      Price floor allowed during POS cart negotiation. Cashier cannot discount below Cost + Minimum Margin.
+                    </p>
+                  </div>
+
+                  {/* Input 2: Maximum Profit Margin (%) */}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center justify-between">
+                      <span>
+                        Maximum Price Margin (%) <span className="text-rose-500 font-bold">*</span>
+                      </span>
+                      <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium font-mono">
+                        Tag: Cost + {formData.max_profit_margin}%
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <Percent className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                      <input
+                        id="setting-max-profit-margin"
+                        type="number"
+                        min="0"
+                        max="1000"
+                        step="1"
+                        value={formData.max_profit_margin}
+                        onChange={(e) => {
+                          const val = Math.max(0, Math.round(parseFloat(e.target.value) || 0));
+                          setFormData({ ...formData, max_profit_margin: val });
+                          if (formErrors.max_profit_margin) {
+                            setFormErrors({ ...formErrors, max_profit_margin: '' });
+                          }
+                        }}
+                        className="w-full h-11 pl-10 pr-3.5 rounded-xl border bg-slate-50 dark:bg-[#060B18]/90 text-xs font-bold font-mono text-slate-900 dark:text-white outline-none transition-all border-slate-300 dark:border-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                        placeholder="e.g. 30"
+                      />
+                    </div>
+                    {formErrors.max_profit_margin && (
+                      <p className="text-rose-600 dark:text-rose-400 text-[11px] mt-1.5">{formErrors.max_profit_margin}</p>
+                    )}
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+                      Tag price printed on barcode stickers: Cost Price + Maximum Profit Margin.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Calculation Rule & Live Preview */}
+                <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/50 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                    <CheckCircle2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <span>Negotiable Pricing Rule</span>
+                  </div>
+                  <p className="text-[11.5px] text-indigo-800/90 dark:text-indigo-300/90 leading-relaxed">
+                    Tag Price is calculated as: <strong>Cost Price + Maximum Profit Margin</strong>. During POS checkout, the cashier can edit/negotiate the cart price down to a minimum of <strong>Cost Price + Minimum Profit Margin</strong>.
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-indigo-200/80 dark:border-indigo-800/40 flex flex-wrap items-center gap-3 text-xs font-mono text-indigo-950 dark:text-indigo-200">
+                    <span>Example: Cost = {formData.currency_symbol} 1,000</span>
+                    <span>&rarr;</span>
+                    <span className="font-bold bg-white dark:bg-indigo-900/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-700">
+                      Tag Price (MRP) = {formData.currency_symbol} {Math.round(1000 * (1 + (formData.max_profit_margin || 0) / 100)).toLocaleString()}
+                    </span>
+                    <span>|</span>
+                    <span className="font-bold bg-white dark:bg-indigo-900/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-700">
+                      POS Min Floor = {formData.currency_symbol} {Math.round(1000 * (1 + (formData.min_profit_margin || 0) / 100)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Bar */}

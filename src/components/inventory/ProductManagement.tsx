@@ -22,7 +22,7 @@ import { BarcodeGeneratorTool } from './BarcodeGeneratorTool.tsx';
 import { SideEndBoxLabelModal } from './SideEndBoxLabelModal.tsx';
 import { StockAdjustModal } from './StockAdjustModal.tsx';
 import { BarcodeSvg } from '../common/BarcodeSvg.tsx';
-import { formatStockPrice } from '../../utils/priceFormat.ts';
+import { formatStockPrice, getProductRetailPrice, getProductMinFloorPrice } from '../../utils/priceFormat.ts';
 import { useTheme } from '../../context/ThemeContext.tsx';
 import { BrandLogo } from '../common/BrandLogo.tsx';
 import { StatCard, triggerStatRecount } from '../common/StatCard.tsx';
@@ -69,6 +69,8 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   };
 
   const currencySymbol = companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
+  const rawPricingMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+  const isFixedPolicy = rawPricingMode === 'FIXED';
   const isAdmin = currentUser?.role === 'ADMIN';
 
   useEffect(() => {
@@ -148,7 +150,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
   const totalStockPairs = products.reduce((acc, p) => acc + (Number(p.totalStock) || 0), 0);
   const lowStockCount = products.filter((p) => (Number(p.totalStock) || 0) <= (Number(p.lowStockLimit) || 5)).length;
-  const totalValuation = products.reduce((acc, p) => acc + (Number(p.totalStock) || 0) * (Number(p.purchasePrice) || 0), 0);
+  const totalValuation = products.reduce((acc, p) => acc + (Number(p.totalStock) || 0) * (Number(p.costPrice ?? p.purchasePrice) || 0), 0);
 
   return (
     <div className="space-y-4 p-4 max-w-7xl mx-auto">
@@ -380,8 +382,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                 <th className="py-3.5 px-4">Article &amp; Identifiers</th>
                 <th className="py-3.5 px-3">Brand &amp; Category</th>
                 <th className="py-3.5 px-4">Barcode (Click to Print)</th>
-                {isAdmin && <th className="py-3.5 px-3 text-right">Purchase Price</th>}
-                <th className="py-3.5 px-3 text-right">Max Price (M.R.P.)</th>
+                <th className="py-3.5 px-3 text-right" title="Base procurement cost price (Selling prices auto-calculated in real time)">Cost Price</th>
                 <th className="py-3.5 px-3 text-center">Total Stock</th>
                 <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
@@ -389,7 +390,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-400 dark:text-slate-500">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <RefreshCw className="w-6 h-6 animate-spin text-blue-600 dark:text-purple-400 mx-auto" />
                       <p className="font-medium text-xs">Loading inventory...</p>
@@ -398,7 +399,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     No products found matching filters.
                   </td>
                 </tr>
@@ -511,24 +512,30 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                         </div>
                       </td>
 
-                      {/* Purchase Cost (Admin only) */}
-                      {isAdmin && (
-                        <td className="py-3.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300 font-semibold text-xs">
-                          {currencySymbol} {formatStockPrice(p.purchasePrice)}
-                        </td>
-                      )}
-
-                      {/* Max Price (M.R.P.) with Auto-Min Subtext */}
+                      {/* Single Cost Price Column with Real-time Calculated Selling Price */}
                       <td className="py-3.5 px-3 text-right">
                         <div className="font-mono font-bold text-slate-900 dark:text-white text-xs">
-                          {currencySymbol} {formatStockPrice(p.maxSalePrice ?? p.minSalePrice)}
+                          {currencySymbol} {formatStockPrice(p.costPrice ?? p.purchasePrice)}
                         </div>
-                        <div
-                          className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5"
-                          title="Auto-calculated Cost + Min Margin floor"
-                        >
-                          Min: {currencySymbol} {formatStockPrice(p.minSalePrice)}
-                        </div>
+                        {(() => {
+                          const retailPrice = getProductRetailPrice(p, companySettings);
+                          const minFloor = getProductMinFloorPrice(p, companySettings);
+                          return isFixedPolicy ? (
+                            <div
+                              className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-semibold mt-0.5"
+                              title="Real-time Fixed Tag & Selling Price"
+                            >
+                              Tag: {currencySymbol} {formatStockPrice(retailPrice)}
+                            </div>
+                          ) : (
+                            <div
+                              className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5"
+                              title="Real-time Tag (MRP) & Min Floor"
+                            >
+                              Tag: {currencySymbol} {formatStockPrice(retailPrice)} · Min: {currencySymbol} {formatStockPrice(minFloor)}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Total Stock */}

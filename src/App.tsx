@@ -729,7 +729,7 @@ export default function App() {
             </main>
 
             {/* APPLICATION FOOTER */}
-            <footer className="py-2.5 px-6 border-t border-[#E2E8F0] dark:border-[#1A263D] bg-white dark:bg-[#070B14] text-center text-xs font-medium text-slate-500 dark:text-slate-400 tracking-wide shrink-0 no-print select-none transition-colors">
+            <footer className="py-2.5 px-6 rounded-t-lg border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg shadow-lg text-center text-xs font-medium text-slate-700 dark:text-slate-200 tracking-wide shrink-0 no-print select-none transition-colors duration-500">
               Designed & Developed by{' '}
               <a
                 href="https://portpolio-eight-pi.vercel.app/"

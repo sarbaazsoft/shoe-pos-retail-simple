@@ -16,7 +16,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
   return (
     <footer
       id="global-public-footer"
-      className="relative z-10 w-full px-4 sm:px-8 py-3.5 border-t border-slate-200/50 dark:border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-md text-xs text-slate-600 dark:text-slate-300 transition-colors shadow-xs"
+      className="relative z-10 w-full px-4 sm:px-8 py-3.5 rounded-t-lg border-t border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg text-xs text-slate-700 dark:text-slate-200 transition-colors duration-500 shadow-lg"
     >
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
         <div className="flex items-center gap-2">
