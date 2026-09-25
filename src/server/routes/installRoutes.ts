@@ -1087,6 +1087,7 @@ router.post('/load-dummy-data', async (req: Request, res: Response) => {
     const sql = fs.readFileSync(sqlPath, 'utf-8');
     await pgClient.waitReady;
     await pgClient.exec(sql);
+    await ensureDatabaseSchema();
 
     // Get live counts
     const salesCount = await pgClient.query('SELECT COUNT(*) as c FROM sales').catch(() => ({ rows: [{ c: '0' }] }));
@@ -1151,6 +1152,7 @@ router.post('/import-sql', async (req: Request, res: Response) => {
 
     await pgClient.waitReady;
     await pgClient.exec(sql);
+    await ensureDatabaseSchema();
 
     // Get live counts
     const salesCount = await pgClient.query('SELECT COUNT(*) as c FROM sales').catch(() => ({ rows: [{ c: '0' }] }));

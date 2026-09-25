@@ -115,6 +115,7 @@ export async function initAndSeedDb() {
         UPDATE products SET cost_price = purchase_price WHERE (cost_price IS NULL OR cost_price = 0) AND purchase_price IS NOT NULL;
       END IF;
     END $$;
+    ALTER TABLE products DROP COLUMN IF EXISTS purchase_price;
     ALTER TABLE products DROP COLUMN IF EXISTS min_sale_price;
     ALTER TABLE products DROP COLUMN IF EXISTS max_sale_price;
 
@@ -134,12 +135,14 @@ export async function initAndSeedDb() {
       name TEXT NOT NULL,
       phone TEXT DEFAULT '',
       email TEXT DEFAULT '',
-      address TEXT DEFAULT '',
-      url TEXT DEFAULT '',
-      notes TEXT DEFAULT '',
+      balance NUMERIC(12, 2) DEFAULT 0.00,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS balance NUMERIC(12, 2) DEFAULT 0.00;
+    ALTER TABLE suppliers DROP COLUMN IF EXISTS address;
+    ALTER TABLE suppliers DROP COLUMN IF EXISTS url;
+    ALTER TABLE suppliers DROP COLUMN IF EXISTS notes;
 
     CREATE TABLE IF NOT EXISTS purchases (
       id SERIAL PRIMARY KEY,
@@ -299,11 +302,11 @@ export async function initAndSeedDb() {
   const supplierCount = await pgClient.query<{ count: string }>('SELECT COUNT(*) as count FROM suppliers');
   if (parseInt(supplierCount.rows[0].count) === 0) {
     await pgClient.query(`
-      INSERT INTO suppliers (name, phone, email, address, url, notes) VALUES 
-      ('Nike Wholesale Pakistan', '+92-300-1122334', 'wholesale@nike.pk', 'Warehouse 4B, SITE Industrial Area, Karachi', 'https://www.nike.com', 'Primary authorized distributor for Nike athletic and lifestyle shoes.'),
-      ('Metro Footwear Importers', '+92-321-4455667', 'orders@metrofootwear.pk', 'Shop 12-14, Shoe Market, Saddar, Lahore', 'https://www.metroshoes.pk', 'General distributor for casual, dress shoes, loafers and sandals.'),
-      ('Bata Pakistan Commercial Supply', '+92-333-7788990', 'commercial@bata.com.pk', 'Batapur Industrial Complex, Lahore', 'https://www.bata.com.pk', 'Formal, school, leather and daily work footwear supplier.'),
-      ('Puma & Sports Footwear Hub', '+92-311-9988776', 'supply@pumasports.pk', 'Plot 89, Sector I-9, Islamabad', 'https://www.puma.com', 'Imported running sneakers, trainers and sports shoes supply partner.');
+      INSERT INTO suppliers (name, phone, email) VALUES 
+      ('Nike Wholesale Pakistan', '+92-300-1122334', 'wholesale@nike.pk'),
+      ('Metro Footwear Importers', '+92-321-4455667', 'orders@metrofootwear.pk'),
+      ('Bata Pakistan Commercial Supply', '+92-333-7788990', 'commercial@bata.com.pk'),
+      ('Puma & Sports Footwear Hub', '+92-311-9988776', 'supply@pumasports.pk');
     `);
     console.log('Default suppliers seeded.');
   }

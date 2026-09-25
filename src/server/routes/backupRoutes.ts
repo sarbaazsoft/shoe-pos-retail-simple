@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { pgClient, dbInfo, isStandardPostgres } from '../../db/index.ts';
+import { ensureDatabaseSchema } from '../../db/schemaInit.ts';
 import { requireAuth, requireAdmin } from '../auth.ts';
 import type { AuthenticatedRequest } from '../auth.ts';
 
@@ -236,6 +237,14 @@ router.post('/restore', requireAuth, requireAdmin, async (req: AuthenticatedRequ
 
           // Strip any fields that don't belong to schema if necessary, or sanitize
           const cleanRow = { ...row };
+          if (tableName === 'products') {
+            if ((cleanRow.cost_price === undefined || cleanRow.cost_price === null) && cleanRow.purchase_price !== undefined) {
+              cleanRow.cost_price = cleanRow.purchase_price;
+            }
+            delete cleanRow.purchase_price;
+            delete cleanRow.min_sale_price;
+            delete cleanRow.max_sale_price;
+          }
 
           // Convert any date strings or nested objects cleanly
           const keys = Object.keys(cleanRow);
@@ -359,6 +368,7 @@ router.post('/load-dummy-data', requireAuth, requireAdmin, async (_req: Authenti
     const sql = fs.readFileSync(sqlPath, 'utf-8');
     await pgClient.waitReady;
     await pgClient.exec(sql);
+    await ensureDatabaseSchema();
 
     const salesCount = await pgClient.query('SELECT COUNT(*) as c FROM sales').catch(() => ({ rows: [{ c: '0' }] }));
     const purCount = await pgClient.query('SELECT COUNT(*) as c FROM purchases').catch(() => ({ rows: [{ c: '0' }] }));
@@ -398,6 +408,7 @@ router.post('/import-sql', requireAuth, requireAdmin, async (req: AuthenticatedR
 
     await pgClient.waitReady;
     await pgClient.exec(sql);
+    await ensureDatabaseSchema();
 
     const salesCount = await pgClient.query('SELECT COUNT(*) as c FROM sales').catch(() => ({ rows: [{ c: '0' }] }));
     const purCount = await pgClient.query('SELECT COUNT(*) as c FROM purchases').catch(() => ({ rows: [{ c: '0' }] }));

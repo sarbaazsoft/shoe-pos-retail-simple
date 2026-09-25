@@ -193,7 +193,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
   const totalStockPairs = products.reduce((acc, p) => acc + (Number(p.totalStock) || 0), 0);
   const lowStockCount = products.filter((p) => (Number(p.totalStock) || 0) <= (Number(p.lowStockLimit) || 5)).length;
-  const totalValuation = products.reduce((acc, p) => acc + (Number(p.totalStock) || 0) * (Number(p.costPrice ?? p.purchasePrice) || 0), 0);
+  const totalValuation = products.reduce((acc, p) => acc + (Number(p.totalStock) || 0) * (Number(p.costPrice ?? p.cost_price) || 0), 0);
 
   return (
     <div className="space-y-4 p-4 max-w-7xl mx-auto">
@@ -558,7 +558,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                       {/* Single Cost Price Column with Real-time Calculated Selling Price */}
                       <td className="py-3.5 px-3 text-right">
                         <div className="font-mono font-bold text-slate-900 dark:text-white text-xs">
-                          {currencySymbol} {formatStockPrice(p.costPrice ?? p.purchasePrice)}
+                          {currencySymbol} {formatStockPrice(p.costPrice ?? p.cost_price)}
                         </div>
                         {(() => {
                           const retailPrice = getProductRetailPrice(p, companySettings);

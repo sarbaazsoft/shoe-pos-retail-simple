@@ -476,17 +476,6 @@ export const Header: React.FC<HeaderProps> = ({
                 style={{ transformOrigin: 'top left' }}
                 className="fixed left-2 right-2 top-[3.8rem] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-96 md:w-[440px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0D1322] border border-slate-200 dark:border-indigo-500/30 rounded-2xl shadow-2xl p-3 z-50 max-h-[calc(100dvh-4.6rem)] sm:max-h-[30rem] overflow-y-auto space-y-2 backdrop-blur-md"
               >
-                {/* Header title */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-                    <Coins className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <span>Quick Price Retrieval</span>
-                  </div>
-                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/60 px-2 py-0.5 rounded-full">
-                    No route change
-                  </span>
-                </div>
-
                 {copiedNotification && (
                   <div className="px-2.5 py-1 text-center text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-200 dark:border-emerald-800/50">
                     ✓ {copiedNotification} copied to clipboard
@@ -583,7 +572,7 @@ export const Header: React.FC<HeaderProps> = ({
                           const fixedSalePrice = getProductRetailPrice(prod, companySettings) || prod.maxSalePrice || prod.costPrice || 0;
                           const minSalePrice = getProductMinFloorPrice(prod, companySettings) || prod.minSalePrice || 0;
                           const maxSalePrice = getProductRetailPrice(prod, companySettings) || prod.maxSalePrice || 0;
-                          const costPrice = prod.costPrice ?? prod.purchasePrice ?? 0;
+                          const costPrice = prod.costPrice ?? prod.cost_price ?? 0;
 
                           if (isFixedPolicy) {
                             // FIXED PRICING MODE: Single Fixed Sale Price (no min/max negotiation)
@@ -1086,7 +1075,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                       if (isAdminMode) {
                         return (
-                          <div className="p-2 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 space-y-2 dark:shadow-[0_0_10px_rgba(16,185,129,0.15)] backdrop-blur-xs">
+                          <div className="p-2 rounded-lg bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 space-y-1.5 dark:shadow-[0_0_10px_rgba(16,185,129,0.15)] backdrop-blur-xs">
                             <div className="flex items-center justify-between gap-1">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -1124,10 +1113,10 @@ export const Header: React.FC<HeaderProps> = ({
                                 }
                                 onTabChange?.('pos');
                               }}
-                              className="w-full h-9 sm:h-9.5 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-bold transition shadow-sm cursor-pointer"
+                              className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-semibold transition shadow-2xs cursor-pointer"
                               title="Browse as cashier to operate POS terminal"
                             >
-                              <ShoppingCart className="w-4 h-4 stroke-[2.2] shrink-0" />
+                              <ShoppingCart className="w-3.5 h-3.5 stroke-[2] shrink-0" />
                               <span>Browse as Cashier</span>
                             </button>
                           </div>
@@ -1138,7 +1127,7 @@ export const Header: React.FC<HeaderProps> = ({
                       return (
                         <div
                           className={`p-2 rounded-lg bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/30 text-blue-800 dark:text-blue-300 dark:shadow-[0_0_10px_rgba(59,130,246,0.15)] backdrop-blur-xs ${
-                            isRealAdmin ? 'space-y-2' : ''
+                            isRealAdmin ? 'space-y-1.5' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1">
@@ -1176,10 +1165,10 @@ export const Header: React.FC<HeaderProps> = ({
                                   } catch {}
                                 }
                               }}
-                              className="w-full h-9 sm:h-9.5 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold transition shadow-sm cursor-pointer"
+                              className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold transition shadow-2xs cursor-pointer"
                               title="Browse as full Store Administrator"
                             >
-                              <ShieldCheck className="w-4 h-4 stroke-[2.2] shrink-0" />
+                              <ShieldCheck className="w-3.5 h-3.5 stroke-[2] shrink-0" />
                               <span>Browse as Admin</span>
                             </button>
                           )}

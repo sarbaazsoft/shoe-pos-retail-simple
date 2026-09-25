@@ -34,6 +34,7 @@ import { lookupCachedProductOffline, searchCachedProductsOffline } from '../../u
 import { useOfflineSync } from '../../utils/useOfflineSync.ts';
 import { OfflineSyncModal } from './OfflineSyncModal.tsx';
 import { BrandLogo } from '../common/BrandLogo.tsx';
+import { CustomerPicker } from './CustomerPicker.tsx';
 
 interface CartItem {
   productId: number;
@@ -44,7 +45,7 @@ interface CartItem {
   sku: string;
   barcode: string;
   totalStock: number;
-  purchasePrice: number;
+  costPrice: number;
   minSalePrice: number;
   maxSalePrice?: number;
   unitPrice: number;
@@ -101,9 +102,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
-  const [quickCustomerName, setQuickCustomerName] = useState('');
-  const [quickCustomerPhone, setQuickCustomerPhone] = useState('');
-  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   // Direct Shoe Exchange State
   const [activeExchange, setActiveExchange] = useState<ActiveExchange | null>(initialExchange || null);
@@ -296,7 +295,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
         return;
       }
 
-      if (showAdminOverrideModal || completedSale) return;
+      if (showAdminOverrideModal || completedSale || isCustomerModalOpen) return;
 
       if (e.key === 'F2' || (e.ctrlKey && e.key === 'k')) {
         e.preventDefault();
@@ -390,7 +389,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
       window.removeEventListener('pos:shoe-exchange', onPosShoeExchangeEvent);
       window.removeEventListener('pos:add-to-cart', onPosAddToCartEvent);
     };
-  }, [cart, isSubmitting, showAdminOverrideModal, completedSale, barcodeInput, inputMode, continuousScan, activeExchange]);
+  }, [cart, isSubmitting, showAdminOverrideModal, completedSale, isCustomerModalOpen, barcodeInput, inputMode, continuousScan, activeExchange]);
 
   // Core 'Find Product' Event: Triggered immediately when barcode or SKU is scanned or entered
   const triggerFindAndAddProduct = async (rawCode: string) => {
@@ -426,7 +425,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
           matchedProduct = {
             ...cached,
             totalStock: cached.totalStock ?? cached.total_stock ?? 999,
-            purchasePrice: parseFloat(cached.purchasePrice || cached.purchase_price || 0),
+            costPrice: parseFloat(cached.costPrice || cached.cost_price || 0),
             minSalePrice: parseFloat(cached.minSalePrice || cached.min_sale_price || 0),
             maxSalePrice: parseFloat(cached.maxSalePrice || cached.max_sale_price || 0),
             salePrice: parseFloat(cached.salePrice || cached.sale_price || 0),
@@ -579,7 +578,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
         ? product.costPrice
         : product.cost_price !== undefined && product.cost_price !== null
         ? product.cost_price
-        : product.purchasePrice || product.purchase_price || 0
+        : 0
     );
 
     const maxMarginThreshold = isFixedPolicy
@@ -666,7 +665,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
           sku: product.sku,
           barcode: product.barcode,
           totalStock: product.totalStock,
-          purchasePrice: cost,
+          costPrice: cost,
           minSalePrice: minSalePrice,
           maxSalePrice: maxSalePrice,
           unitPrice: startingUnitPrice,
@@ -737,7 +736,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
     const item = cart.find((i) => i.productId === productId);
     if (!item) return;
 
-    const cost = item.purchasePrice || 0;
+    const cost = item.costPrice || 0;
     const minMarginThreshold = isFixedPolicy
       ? fixedProfitMarginSetting
       : typeof companySettings?.min_profit_margin === 'number'
@@ -820,27 +819,6 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
   const setExactCash = () => setCashReceived(netTotalPayable);
   const addQuickCash = (amount: number) => {
     setCashReceived((prev) => (typeof prev === 'number' ? prev + amount : amount));
-  };
-
-  // Create Quick Customer
-  const handleCreateQuickCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickCustomerName.trim() || !quickCustomerPhone.trim()) return;
-
-    try {
-      const res = await api.customers.create({
-        name: quickCustomerName.trim(),
-        phone: quickCustomerPhone.trim(),
-        address: 'Walk-in Counter',
-      });
-      setCustomers((prev) => [res.customer, ...prev]);
-      setSelectedCustomerId(res.customer.id);
-      setIsAddingCustomer(false);
-      setQuickCustomerName('');
-      setQuickCustomerPhone('');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to add customer.');
-    }
   };
 
   // Handle Checkout
@@ -956,6 +934,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
       setSelectedCustomerId(null);
       setShowAdminOverrideModal(false);
       setOverridePendingItem(null);
+      loadCustomers();
     } catch (err: any) {
       // If server unreachable or connection dropped mid-call, gracefully offer offline queuing
       const isNetError =
@@ -1549,7 +1528,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
                     ? companySettings.max_profit_margin_percent
                     : 30;
 
-                  const cost = item.purchasePrice || 0;
+                  const cost = item.costPrice || 0;
                   const itemMinFloor = cost > 0
                     ? Math.round(cost * (1 + minProfitMarginThreshold / 100))
                     : (item.minSalePrice || 0);
@@ -1800,67 +1779,27 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
 
       {/* RIGHT COLUMN: Customer, Payment, Cash Tender & Checkout */}
       <div className="w-full xl:w-96 shrink-0 flex flex-col gap-4">
-        {/* Customer Selector Card */}
+        {/* Customer Selector Card (High-Volume Searchable Combobox & Find Customer Modal) */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          className="app-card p-4 transition-colors"
+          className="app-card p-4 transition-colors relative z-20"
         >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2 text-slate-800 dark:text-white font-extrabold text-xs uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-cyan-400"></span>
-              <User className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-              <span>Customer</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsAddingCustomer(!isAddingCustomer)}
-              className="px-2.5 py-1 text-xs font-bold rounded-lg border border-blue-200 dark:border-blue-800/80 text-blue-600 dark:text-cyan-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition cursor-pointer"
-            >
-              {isAddingCustomer ? 'Cancel' : '+ New Customer'}
-            </button>
-          </div>
-
-          {isAddingCustomer ? (
-            <form onSubmit={handleCreateQuickCustomer} className="space-y-2 text-xs">
-              <input
-                type="text"
-                placeholder="Customer Name *"
-                value={quickCustomerName}
-                onChange={(e) => setQuickCustomerName(e.target.value)}
-                className="app-input w-full px-3 py-2 text-xs"
-                required
-              />
-              <input
-                type="text"
-                placeholder="Mobile / Phone *"
-                value={quickCustomerPhone}
-                onChange={(e) => setQuickCustomerPhone(e.target.value)}
-                className="app-input w-full px-3 py-2 text-xs"
-                required
-              />
-              <button
-                type="submit"
-                className="w-full py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white border border-purple-400/40 dark:border-purple-400/50 rounded-xl text-xs font-bold shadow-md shadow-purple-600/25 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)] transition cursor-pointer active:scale-95"
-              >
-                Save &amp; Select Customer
-              </button>
-            </form>
-          ) : (
-            <select
-              value={selectedCustomerId || ''}
-              onChange={(e) => setSelectedCustomerId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-purple-500/20 border border-slate-200 dark:border-purple-400/40 rounded-xl text-xs font-semibold text-slate-800 dark:text-purple-200 hover:bg-slate-100 dark:hover:bg-purple-500/30 dark:hover:text-white dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] focus:bg-white dark:focus:bg-purple-500/25 focus:border-blue-600 dark:focus:border-purple-400 outline-none transition cursor-pointer"
-            >
-              <option value="" className="dark:bg-[#120726] dark:text-purple-100">Walk-in Customer (Standard)</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id} className="dark:bg-[#120726] dark:text-purple-100">
-                  {c.name} ({c.phone})
-                </option>
-              ))}
-            </select>
-          )}
+          <CustomerPicker
+            customers={customers}
+            selectedCustomerId={selectedCustomerId}
+            onSelectCustomer={(customerId) => {
+              setSelectedCustomerId(customerId);
+              focusScannerInput(continuousScan);
+            }}
+            onCustomerCreated={(newCustomer) => {
+              setCustomers((prev) => [newCustomer, ...prev]);
+              setSelectedCustomerId(newCustomer.id);
+            }}
+            currencySymbol={currencySymbol}
+            onModalOpenChange={setIsCustomerModalOpen}
+          />
         </motion.div>
 
         {/* Payment Calculation & Tender Box */}

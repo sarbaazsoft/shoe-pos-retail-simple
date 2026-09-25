@@ -50,9 +50,10 @@ import { BrandLogo } from '../common/BrandLogo.tsx';
 
 interface ProductFormModalProps {
   product?: any | null; // If null, adding new product
+  currentUser?: any;
   companySettings: any;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedProduct?: any) => void;
 }
 
 type WizardStep = 1 | 2 | 3;
@@ -91,8 +92,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [nextProductId, setNextProductId] = useState<number>(product?.id || 1);
   const effectiveProductId = product?.id || nextProductId;
 
-  // Step 2: Article & SKU (Strictly read-only / non-editable store standard)
+  // Step 2 & 3: Article & SKU (Auto-suggested from classification, fully editable in Step 3 like Barcode)
   const [article, setArticle] = useState<string>(product?.article || '');
+  const [isArticleManuallyEdited, setIsArticleManuallyEdited] = useState<boolean>(false);
   const [sku, setSku] = useState<string>(product?.sku || '');
   const [isSideEndLabelOpen, setIsSideEndLabelOpen] = useState(false);
   const [isBarcodeStickerOpen, setIsBarcodeStickerOpen] = useState(false);
@@ -112,13 +114,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   };
 
   // Step 3: Pricing Specifications State (Decimal cleanup: .00 automatically stripped)
-  const [purchasePrice, setPurchasePrice] = useState<number | ''>(
+  const [costPrice, setCostPrice] = useState<number | ''>(
     product?.costPrice !== undefined && product?.costPrice !== null && product?.costPrice !== ''
       ? parseFloat(cleanStockPriceInput(product.costPrice))
       : product?.cost_price !== undefined && product?.cost_price !== null && product?.cost_price !== ''
       ? parseFloat(cleanStockPriceInput(product.cost_price))
-      : product?.purchasePrice !== undefined && product?.purchasePrice !== null && product?.purchasePrice !== ''
-      ? parseFloat(cleanStockPriceInput(product.purchasePrice))
       : ''
   );
   const [minSalePrice, setMinSalePrice] = useState<number | ''>(
@@ -143,6 +143,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const currencySymbol = companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+  const articleInputRef = useRef<HTMLInputElement | null>(null);
 
   // Maximum Profit Margin Threshold from Company Settings (default 30%)
   const maxProfitMarginThreshold =
@@ -179,11 +180,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [percentMinMargin, setPercentMinMargin] = useState<number>(minProfitMarginThreshold);
   const [percentMaxMargin, setPercentMaxMargin] = useState<number>(maxProfitMarginThreshold);
   const [fixedMinMargin, setFixedMinMargin] = useState<number>(() => {
-    const c = typeof purchasePrice === 'number' ? purchasePrice : 0;
+    const c = typeof costPrice === 'number' ? costPrice : 0;
     return c > 0 ? smartRoundUp(c * (minProfitMarginThreshold / 100)) || 250 : 250;
   });
   const [fixedMaxMargin, setFixedMaxMargin] = useState<number>(() => {
-    const c = typeof purchasePrice === 'number' ? purchasePrice : 0;
+    const c = typeof costPrice === 'number' ? costPrice : 0;
     return c > 0 ? smartRoundUp(c * (maxProfitMarginThreshold / 100)) || 500 : 500;
   });
 
@@ -208,7 +209,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   };
 
   // Derived cost and smart-rounded pricing calculations
-  const cost = typeof purchasePrice === 'number' ? purchasePrice : 0;
+  const cost = typeof costPrice === 'number' ? costPrice : 0;
   const currentPricing = computePricing(cost, marginType, activeMinMargin, activeMaxMargin);
 
   const minProfitFloor = currentPricing.minProfitPrice;
@@ -274,9 +275,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   };
 
   // Auto-calculate Minimum & Maximum Sale Price with upward smart rounding
-  const handlePurchasePriceChange = (val: string) => {
+  const handleCostPriceChange = (val: string) => {
     if (val === '') {
-      setPurchasePrice('');
+      setCostPrice('');
       if (!product) {
         setMinSalePrice('');
         setMaxSalePrice('');
@@ -285,21 +286,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
     const num = parseInt(val, 10);
     if (!isNaN(num)) {
-      setPurchasePrice(num);
+      setCostPrice(num);
       if (num > 0) {
         const pricing = computePricing(num, marginType, activeMinMargin, activeMaxMargin);
         setMinSalePrice(pricing.minProfitPrice);
         setMaxSalePrice(pricing.maxProfitPrice);
       }
     } else {
-      setPurchasePrice('');
+      setCostPrice('');
     }
   };
 
-  const handlePurchasePriceBlur = (val: string) => {
+  const handleCostPriceBlur = (val: string) => {
     const cleaned = cleanStockPriceInput(val);
     if (cleaned === '') {
-      setPurchasePrice('');
+      setCostPrice('');
       if (!product) {
         setMinSalePrice('');
         setMaxSalePrice('');
@@ -307,7 +308,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     } else {
       const parsed = parseInt(cleaned, 10);
       if (!isNaN(parsed)) {
-        setPurchasePrice(parsed);
+        setCostPrice(parsed);
         if (parsed > 0) {
           const pricing = computePricing(parsed, marginType, activeMinMargin, activeMaxMargin);
           setMinSalePrice(pricing.minProfitPrice);
@@ -365,13 +366,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const currentCategoryName = selectedCategory?.name || product?.categoryName || '';
   const currentCategoryPrefix = currentCategoryName ? parseCategoryPrefix(currentCategoryName) : '';
 
-  // Helper to recompute strictly non-editable article and SKU based on classification
+  // Helper to recompute article and SKU based on classification (respects manual article edit if set)
   const updateClassificationCodes = (
     bId: number | '',
     cId: number | '',
     pId: number,
     bList = brands,
-    cList = categories
+    cList = categories,
+    forceResetArticle = false
   ) => {
     const chosenBrand = bList.find((b) => b.id === bId) || bList.find((b) => b.name?.trim().toLowerCase() === 'local');
     const chosenCat = cList.find((c: any) => c.id === cId);
@@ -379,17 +381,49 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
     if (chosenCat) {
       const catPfx = parseCategoryPrefix(chosenCat.name);
-      const designedArticle = generateSuggestedArticle(catPfx, pId);
+      const designedArticle =
+        !forceResetArticle && isArticleManuallyEdited && article.trim()
+          ? article.trim().toUpperCase()
+          : generateSuggestedArticle(catPfx, pId);
       const designedSku = generateSku(brandPfx, designedArticle, pId);
 
       setArticle(designedArticle);
       setSku(designedSku);
-      if (!productName || productName === article) {
+      if (!productName || productName.toUpperCase() === article.toUpperCase()) {
         setProductName(designedArticle);
       }
-    } else {
+    } else if (!isArticleManuallyEdited || forceResetArticle) {
       setArticle('');
       setSku('');
+    }
+  };
+
+  const handleArticleChange = (rawVal: string) => {
+    const nextArticle = rawVal.toUpperCase();
+    const prevArticle = article;
+    setIsArticleManuallyEdited(true);
+    setArticle(nextArticle);
+    const cleanNext = nextArticle.trim();
+    const nextSku = cleanNext
+      ? generateSku(currentBrandPrefix || 'LOC', cleanNext, effectiveProductId)
+      : '';
+    setSku(nextSku);
+    if (!productName || productName.trim().toUpperCase() === prevArticle.trim().toUpperCase()) {
+      setProductName(cleanNext);
+    }
+  };
+
+  const handleResetStoreArticle = () => {
+    setErrorMessage(null);
+    setIsArticleManuallyEdited(false);
+    const catPfx = currentCategoryPrefix || 'CA';
+    const designedArticle = generateSuggestedArticle(catPfx, effectiveProductId);
+    const designedSku = generateSku(currentBrandPrefix || 'LOC', designedArticle, effectiveProductId);
+    const prevArticle = article;
+    setArticle(designedArticle);
+    setSku(designedSku);
+    if (!productName || productName.trim().toUpperCase() === prevArticle.trim().toUpperCase()) {
+      setProductName(designedArticle);
     }
   };
 
@@ -583,7 +617,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     } else {
       const chosenCat = categories.find((c) => c.id === newCategoryId);
       const catPfx = parseCategoryPrefix(chosenCat?.name || '');
-      const designedArticle = generateSuggestedArticle(catPfx, effectiveProductId);
+      const designedArticle =
+        isArticleManuallyEdited && article.trim()
+          ? article.trim().toUpperCase()
+          : generateSuggestedArticle(catPfx, effectiveProductId);
       setArticle(designedArticle);
       setSku(generateSku(currentBrandPrefix, designedArticle, effectiveProductId));
     }
@@ -645,7 +682,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const validateStep2 = (): boolean => {
     setErrorMessage(null);
-    if (purchasePrice === '' || Number(purchasePrice) < 0) {
+    if (costPrice === '' || Number(costPrice) < 0) {
       setErrorMessage('Please enter a valid Cost Price (0 or greater).');
       return false;
     }
@@ -654,6 +691,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const validateStep3 = (): boolean => {
     setErrorMessage(null);
+    if (!article.trim()) {
+      setErrorMessage('Please enter an Article code/name, or click "Reset to Store Article".');
+      articleInputRef.current?.focus();
+      return false;
+    }
     const clean = barcode.trim();
     if (!clean) {
       setErrorMessage('Please enter or scan a barcode, or click "Reset to Store EAN-13".');
@@ -737,9 +779,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
       const finalBarcodeToSave = barcode.trim();
 
-      const costNum = Math.round(Number(purchasePrice));
-      const autoTagPrice = getProductRetailPrice({ costPrice: costNum, purchasePrice: costNum }, companySettings);
-      const autoMinFloor = getProductMinFloorPrice({ costPrice: costNum, purchasePrice: costNum }, companySettings);
+      const costNum = Math.round(Number(costPrice));
+      const autoTagPrice = getProductRetailPrice({ costPrice: costNum }, companySettings);
+      const autoMinFloor = getProductMinFloorPrice({ costPrice: costNum }, companySettings);
 
       const payload = {
         name: productName.trim() || cleanArticle,
@@ -751,20 +793,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         primaryImageUrl: primaryImageUrl.trim(),
         description: description.trim(),
         costPrice: costNum,
-        purchasePrice: costNum,
         maxSalePrice: autoTagPrice || costNum,
         minSalePrice: autoMinFloor || costNum,
         totalStock: totalStock === '' ? 0 : Math.round(Number(totalStock)),
         lowStockLimit: product?.lowStockLimit !== undefined ? product.lowStockLimit : 5,
       };
 
+      let savedProduct: any = null;
       if (product) {
-        await api.products.update(product.id, payload);
+        const res = await api.products.update(product.id, payload);
+        savedProduct = (res as any)?.product || { ...product, ...payload, id: product.id };
       } else {
-        await api.products.create(payload);
+        const res = await api.products.create(payload);
+        savedProduct = (res as any)?.product || {
+          ...payload,
+          id: (res as any)?.productId || effectiveProductId,
+          barcode: (res as any)?.barcode || finalBarcodeToSave,
+          sku: (res as any)?.sku || cleanSku,
+        };
       }
 
-      onSuccess();
+      onSuccess(savedProduct);
       onClose();
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to save product.');
@@ -945,6 +994,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               if (target && target.tagName === 'INPUT') {
                 if (currentStep < 3) {
                   goToNextStep();
+                } else if (target === articleInputRef.current) {
+                  barcodeInputRef.current?.focus();
                 } else if (target === barcodeInputRef.current) {
                   barcodeInputRef.current?.blur();
                 }
@@ -1237,9 +1288,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 ? companySettings.maxProfitMargin
                 : 30;
 
-            const costVal = typeof purchasePrice === 'number' ? purchasePrice : 0;
-            const realTimeTagPrice = getProductRetailPrice({ costPrice: costVal, purchasePrice: costVal }, companySettings);
-            const realTimeMinFloor = getProductMinFloorPrice({ costPrice: costVal, purchasePrice: costVal }, companySettings);
+            const costVal = typeof costPrice === 'number' ? costPrice : 0;
+            const realTimeTagPrice = getProductRetailPrice({ costPrice: costVal }, companySettings);
+            const realTimeMinFloor = getProductMinFloorPrice({ costPrice: costVal }, companySettings);
 
             return (
               <div className="space-y-4 animate-in fade-in duration-150">
@@ -1272,9 +1323,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         required
                         autoFocus
                         placeholder="0"
-                        value={purchasePrice}
-                        onChange={(e) => handlePurchasePriceChange(e.target.value)}
-                        onBlur={(e) => handlePurchasePriceBlur(e.target.value)}
+                        value={costPrice}
+                        onChange={(e) => handleCostPriceChange(e.target.value)}
+                        onBlur={(e) => handleCostPriceBlur(e.target.value)}
                         className="w-full pl-12 pr-4 py-3 bg-white dark:bg-[#0B101D] border-2 border-indigo-200 dark:border-indigo-800/80 rounded-xl font-mono font-black text-lg text-gray-950 dark:text-white outline-none focus:border-indigo-600 dark:focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-950/50 shadow-xs"
                       />
                     </div>
@@ -1385,9 +1436,124 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
                     <Barcode className="w-4 h-4 text-indigo-600 dark:text-blue-400" />
-                    <h4 className="font-bold text-gray-900 dark:text-white text-sm">3. Barcode &amp; Product Identification</h4>
+                    <h4 className="font-bold text-gray-900 dark:text-white text-sm">3. Article &amp; Barcode Identification</h4>
                   </div>
                   <span className="text-[11px] text-gray-400 dark:text-slate-500">Step 3 of 3</span>
+                </div>
+
+                {/* EDITABLE ARTICLE SECTION (ALIGNED WITH BARCODE INPUT) */}
+                <div className="space-y-3 pb-4 border-b border-gray-100 dark:border-slate-800">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <label className="font-bold text-gray-900 dark:text-slate-200 text-xs flex items-center gap-1.5">
+                        <span>Article Input (Editable Store or Box Article)</span>
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <p className="text-[11px] text-gray-500 dark:text-slate-400">
+                        Pre-filled with designed store article ({generateSuggestedArticle(currentCategoryPrefix || 'CA', effectiveProductId)}). You can keep it, or type a manufacturer box article code.
+                      </p>
+                    </div>
+
+                    {/* Fast Action Buttons for Article */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleResetStoreArticle}
+                        className="px-2.5 py-1.5 bg-indigo-50 dark:bg-blue-950/50 hover:bg-indigo-100 dark:hover:bg-blue-900/60 text-indigo-600 dark:text-blue-400 rounded-lg font-semibold text-[11px] transition flex items-center gap-1 cursor-pointer border border-indigo-200 dark:border-blue-800/60"
+                        title="Reset to auto-generated store standard article code"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-blue-400" />
+                        <span>Reset to Store Article</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleArticleChange('');
+                          setTimeout(() => articleInputRef.current?.focus(), 50);
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-100 dark:bg-[#070B14] hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg font-semibold text-[11px] transition flex items-center gap-1 cursor-pointer border border-slate-300 dark:border-slate-700"
+                        title="Clear and focus to enter custom or box article code"
+                      >
+                        <Tag className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                        <span>Enter Box Article</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Editable Article Input with Dynamic Border & Linked SKU State */}
+                  <div className="relative">
+                    <input
+                      ref={articleInputRef}
+                      id="product-article-step3-input"
+                      type="text"
+                      required
+                      placeholder={`Type article code or box article (e.g. ${generateSuggestedArticle(currentCategoryPrefix || 'CA', effectiveProductId)} or ART-905)...`}
+                      value={article}
+                      onChange={(e) => handleArticleChange(e.target.value)}
+                      className={`w-full pl-10 pr-28 py-3 bg-white dark:bg-[#070B14] border-2 rounded-xl font-mono font-bold text-base text-gray-900 dark:text-white outline-none transition shadow-xs uppercase ${
+                        article.trim().length > 0
+                          ? 'border-emerald-400 dark:border-emerald-500 focus:border-emerald-600 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 dark:focus:ring-emerald-950'
+                          : 'border-red-400 dark:border-red-500 focus:border-red-600 dark:focus:border-red-400 focus:ring-2 focus:ring-red-100 dark:focus:ring-red-950'
+                      }`}
+                    />
+                    <Tag className="w-5 h-5 text-indigo-600 dark:text-blue-400 absolute left-3 top-1/2 -translate-y-1/2" />
+
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {article && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleArticleChange('');
+                            articleInputRef.current?.focus();
+                          }}
+                          className="px-2 py-1 text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 rounded text-[10px] font-semibold cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <span className="font-mono text-[10px] font-bold text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-gray-200 dark:border-slate-700">
+                        {article.trim().length} chars
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* REAL-TIME ARTICLE & LINKED SKU FEEDBACK */}
+                  {article.trim().length > 0 ? (
+                    <div className="alert-success flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in">
+                      <div className="flex items-center gap-2 text-emerald-950 dark:text-emerald-300 font-medium">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <div>
+                          <span className="font-bold text-emerald-900 dark:text-emerald-300 font-mono">
+                            {article.trim().toUpperCase()}
+                          </span>
+                          <span className="mx-1.5 opacity-40">|</span>
+                          <span className="text-emerald-700 dark:text-emerald-400">
+                            Linked SKU: <strong className="font-mono">{sku || '---'}</strong>
+                          </span>
+                        </div>
+                      </div>
+                      <span className="badge-success uppercase text-[10px]">
+                        <Check className="w-3 h-3 stroke-[3]" />
+                        <span>{isArticleManuallyEdited ? 'Custom Article' : 'Store Article'}</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="alert-danger flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in">
+                      <div className="flex items-center gap-2 text-red-800 dark:text-red-300">
+                        <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+                        <span>Article code is required for product identification and box labels.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleResetStoreArticle}
+                        className="btn-danger px-2.5 py-1 text-[11px] flex items-center gap-1 shadow-2xs cursor-pointer"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Restore Store Article</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* EDITABLE BARCODE SECTION WITH REAL-TIME VALIDATION */}
@@ -1599,13 +1765,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#070B14] border border-gray-100 dark:border-slate-800">
-                    <span className="text-[10px] text-gray-400 dark:text-slate-500 block">Designed SKU</span>
-                    <span className="font-mono font-bold text-indigo-600 dark:text-blue-400 truncate block">{sku || '---'}</span>
+                    <span className="text-[10px] text-gray-400 dark:text-slate-500 block">Article / SKU</span>
+                    <span className="font-mono font-bold text-indigo-600 dark:text-blue-400 truncate block">
+                      {article || '---'} <span className="text-gray-400 dark:text-slate-500 font-normal">({sku || '---'})</span>
+                    </span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#070B14] border border-gray-100 dark:border-slate-800">
                     <span className="text-[10px] text-gray-400 dark:text-slate-500 block">Cost / Max Sale Price</span>
                     <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 truncate block">
-                      {currencySymbol} {formatStockPrice(purchasePrice)} / {currencySymbol} {formatStockPrice(effectiveMaxSale)}
+                      {currencySymbol} {formatStockPrice(costPrice)} / {currencySymbol} {formatStockPrice(effectiveMaxSale)}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#070B14] border border-gray-100 dark:border-slate-800">
@@ -1663,7 +1831,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <button
                   type="button"
                   onClick={handleConfirmAndSave}
-                  disabled={isSubmitting || barcodeValidation.status === 'invalid'}
+                  disabled={isSubmitting || barcodeValidation.status === 'invalid' || !article.trim()}
                   className="btn-primary px-6 py-2.5 text-xs flex items-center gap-1.5 cursor-pointer shadow-md font-bold disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-4 h-4" />
@@ -1685,6 +1853,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 name: productName || article,
                 sku: sku,
                 barcode: barcode || sku,
+                costPrice: costPrice || 0,
                 minSalePrice: minSalePrice || 0,
                 maxSalePrice: maxSalePrice || 0,
                 brandName: currentBrandName,
@@ -1707,6 +1876,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 name: productName || article,
                 sku: sku,
                 barcode: barcode || sku,
+                costPrice: costPrice || 0,
                 minSalePrice: minSalePrice || 0,
                 maxSalePrice: maxSalePrice || 0,
                 brandName: currentBrandName,

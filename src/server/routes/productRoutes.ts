@@ -396,7 +396,6 @@ router.get('/lookup/:barcode', requireAuth, async (req, res: Response) => {
       primaryImageUrl: row.primary_image_url,
       description: row.description,
       costPrice,
-      purchasePrice: costPrice,
       maxSalePrice,
       minSalePrice,
       totalStock: row.total_stock,
@@ -477,7 +476,6 @@ router.get('/', requireAuth, async (req, res: Response) => {
         primaryImageUrl: row.primary_image_url,
         description: row.description,
         costPrice: cost,
-        purchasePrice: cost,
         maxSalePrice,
         minSalePrice,
         totalStock: row.total_stock,
@@ -534,7 +532,6 @@ router.get('/:id', requireAuth, async (req, res: Response) => {
         primaryImageUrl: row.primary_image_url,
         description: row.description,
         costPrice: cost,
-        purchasePrice: cost,
         maxSalePrice,
         minSalePrice,
         totalStock: row.total_stock,
@@ -564,7 +561,7 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
       primaryImageUrl,
       description,
       costPrice,
-      purchasePrice,
+      cost_price,
       totalStock = 0,
       initialStock,
       lowStockLimit,
@@ -578,7 +575,7 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
 
     const rawCost = costPrice !== undefined && costPrice !== null && costPrice !== ''
       ? costPrice
-      : purchasePrice;
+      : cost_price;
 
     if (rawCost === undefined || rawCost === '' || Number(rawCost) < 0) {
       return res.status(400).json({ error: 'Valid cost price is required.' });
@@ -760,7 +757,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
       primaryImageUrl,
       description,
       costPrice,
-      purchasePrice,
+      cost_price,
       totalStock,
       lowStockLimit,
       active,
@@ -819,11 +816,11 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
     const updatedStock = totalStock !== undefined ? parseInt(String(totalStock), 10) : current.total_stock;
     const rawCost = costPrice !== undefined && costPrice !== null && costPrice !== ''
       ? costPrice
-      : purchasePrice;
+      : cost_price;
 
     const finalCostPrice = rawCost !== undefined && rawCost !== ''
       ? Math.round(Number(rawCost))
-      : Math.round(Number(current.cost_price || current.purchase_price || 0));
+      : Math.round(Number(current.cost_price || 0));
 
     await pgClient.query(
       `UPDATE products SET 

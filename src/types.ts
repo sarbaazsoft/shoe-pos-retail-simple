@@ -135,7 +135,6 @@ export interface Product {
   primaryImageUrl: string;
   description?: string;
   costPrice: number;
-  purchasePrice?: number;
   minSalePrice?: number;
   maxSalePrice?: number;
   totalStock: number;
@@ -149,12 +148,22 @@ export interface Product {
 
 export interface Customer {
   id: number;
+  code?: string;
   name: string;
   phone: string;
   email?: string;
   address?: string;
   notes?: string;
   totalPurchases?: number;
+  total_orders?: number;
+  totalOrders?: number;
+  total_spent?: number | string;
+  totalSpent?: number;
+  loyalty_points?: number;
+  loyaltyPoints?: number;
+  balance?: number | string;
+  last_visit?: string | null;
+  lastVisit?: string | null;
   createdAt: string;
 }
 
@@ -163,9 +172,8 @@ export interface Supplier {
   name: string;
   phone?: string;
   email?: string;
-  address?: string;
-  url?: string;
-  notes?: string;
+  balance?: number | string;
+  net_payable_balance?: number | string;
   total_purchases?: number;
   totalPurchases?: number;
   total_purchased_amount?: number | string;
@@ -187,8 +195,7 @@ export interface CartItem {
   unitPrice: number;
   minSalePrice: number;
   maxSalePrice?: number;
-  purchasePrice: number;
-  costPrice?: number;
+  costPrice: number;
   discount: number;
   total: number;
   totalStock: number;
@@ -277,7 +284,6 @@ export interface PurchaseReturn {
   supplierId?: number | null;
   supplierName: string;
   supplierPhone?: string;
-  supplierAddress?: string;
   returnDate: string;
   totalDebitAmount: number;
   reason: string;

@@ -54,7 +54,7 @@ router.get('/', requireAuth, forbidCashier, requireAdmin, async (req, res: Respo
       SELECT p.*,
              (p.total_amount - COALESCE(p.paid_amount, 0))::numeric as balance_due,
              u.name as created_by_name,
-             s.name as supplier_official_name, s.phone as supplier_phone, s.url as supplier_url, s.email as supplier_email,
+             s.name as supplier_official_name, s.phone as supplier_phone, s.email as supplier_email,
              (SELECT COUNT(*) FROM purchase_items pi WHERE pi.purchase_id = p.id) as item_count
       FROM purchases p
       LEFT JOIN users u ON p.created_by = u.id
@@ -93,7 +93,7 @@ router.get('/:id', requireAuth, forbidCashier, requireAdmin, async (req, res: Re
       `SELECT p.*,
               (p.total_amount - COALESCE(p.paid_amount, 0))::numeric as balance_due,
               u.name as created_by_name,
-              s.name as supplier_official_name, s.phone as supplier_phone, s.url as supplier_url, s.email as supplier_email, s.address as supplier_address
+              s.name as supplier_official_name, s.phone as supplier_phone, s.email as supplier_email
        FROM purchases p
        LEFT JOIN users u ON p.created_by = u.id
        LEFT JOIN suppliers s ON p.supplier_id = s.id

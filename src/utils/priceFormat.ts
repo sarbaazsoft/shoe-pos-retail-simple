@@ -77,10 +77,6 @@ export function getProductRetailPrice(product: any, companySettings?: any): numb
       ? product.costPrice
       : product.cost_price !== undefined && product.cost_price !== null
       ? product.cost_price
-      : product.purchasePrice !== undefined && product.purchasePrice !== null
-      ? product.purchasePrice
-      : product.purchase_price !== undefined && product.purchase_price !== null
-      ? product.purchase_price
       : 0
   );
 
@@ -134,10 +130,6 @@ export function getProductMinFloorPrice(product: any, companySettings?: any): nu
       ? product.costPrice
       : product.cost_price !== undefined && product.cost_price !== null
       ? product.cost_price
-      : product.purchasePrice !== undefined && product.purchasePrice !== null
-      ? product.purchasePrice
-      : product.purchase_price !== undefined && product.purchase_price !== null
-      ? product.purchase_price
       : 0
   );
 
@@ -179,10 +171,6 @@ export function getProductRealtimePricing(product: any, companySettings?: any) {
       ? product.costPrice
       : product?.cost_price !== undefined && product?.cost_price !== null
       ? product.cost_price
-      : product?.purchasePrice !== undefined && product?.purchasePrice !== null
-      ? product.purchasePrice
-      : product?.purchase_price !== undefined && product?.purchase_price !== null
-      ? product.purchase_price
       : 0
   );
   const retailPrice = getProductRetailPrice(product, companySettings);

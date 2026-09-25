@@ -114,6 +114,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
         UPDATE products SET cost_price = purchase_price WHERE (cost_price IS NULL OR cost_price = 0) AND purchase_price IS NOT NULL;
       END IF;
     END $$;
+    ALTER TABLE products DROP COLUMN IF EXISTS purchase_price;
     ALTER TABLE products DROP COLUMN IF EXISTS min_sale_price;
     ALTER TABLE products DROP COLUMN IF EXISTS max_sale_price;
 
@@ -137,14 +138,14 @@ export async function ensureDatabaseSchema(): Promise<void> {
       name TEXT NOT NULL,
       phone TEXT DEFAULT '',
       email TEXT DEFAULT '',
-      address TEXT DEFAULT '',
-      url TEXT DEFAULT '',
-      notes TEXT DEFAULT '',
       balance NUMERIC(12, 2) DEFAULT 0.00,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
     ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS balance NUMERIC(12, 2) DEFAULT 0.00;
+    ALTER TABLE suppliers DROP COLUMN IF EXISTS address;
+    ALTER TABLE suppliers DROP COLUMN IF EXISTS url;
+    ALTER TABLE suppliers DROP COLUMN IF EXISTS notes;
 
     CREATE TABLE IF NOT EXISTS purchases (
       id SERIAL PRIMARY KEY,
