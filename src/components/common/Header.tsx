@@ -241,7 +241,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="px-4 rounded-b-lg border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg shadow-lg transition-colors duration-500 sticky top-0 z-30 select-none text-slate-800 dark:text-slate-100 flex items-center justify-between gap-2.5 sm:gap-4 min-h-[3.6rem] py-1.5 no-print">
+    <header className="px-4 border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg shadow-lg transition-colors duration-500 sticky top-0 z-30 select-none text-slate-800 dark:text-slate-100 flex items-center justify-between gap-2.5 sm:gap-4 min-h-[3.6rem] py-1.5 no-print">
       {/* LEFT: Mobile Menu Toggle Button & Global Search Bar close to hamburger menu */}
       <div className="flex items-center gap-2 sm:gap-2.5 pl-0.5 sm:pl-1 min-w-0">
         {/* Mobile Menu Toggle Button (< lg) */}
@@ -271,8 +271,8 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowUserDropdown(false);
                 setShowThemeDropdown(false);
               }}
-              placeholder="Quick price check (Article, SKU)..."
-              className="h-8 sm:h-8.5 w-full bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-indigo-500/20 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all font-medium"
+              placeholder="Quick price check By Article ..."
+              className="h-8 sm:h-8.5 uppercase w-full bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-indigo-500/20 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all font-medium"
             />
             {searchQuery && (
               <button
