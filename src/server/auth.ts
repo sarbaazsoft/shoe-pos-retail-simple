@@ -82,8 +82,26 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   }
 }
 
+export function forbidCashier(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required. Please login.' });
+  }
+  const role = (req.user.role || '').toLowerCase();
+  if (role === 'cashier') {
+    return res.status(403).json({ error: 'Access forbidden: Cashier role is not authorized for this operation.' });
+  }
+  next();
+}
+
 export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.user || req.user.role !== 'ADMIN') {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required. Please login.' });
+  }
+  const role = (req.user.role || '').toLowerCase();
+  if (role === 'cashier') {
+    return res.status(403).json({ error: 'Access forbidden: Cashier role is not authorized for this operation.' });
+  }
+  if (role !== 'admin' && role !== 'manager') {
     return res.status(403).json({ error: 'Admin permission required for this operation.' });
   }
   next();

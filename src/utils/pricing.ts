@@ -1,28 +1,131 @@
 /**
- * Automatic Pricing Calculation & Adaptive Smart-Rounding Engine
+ * Centralized Pricing Engine & Calculation Service
  *
  * Core Rules:
- * 1. Raw Calculation:
- *    - Percentage:
- *      MinimumProfitPrice = CostPrice * (1 + MinimumProfitMargin / 100)
- *      MaximumProfitPrice = CostPrice * (1 + MaximumProfitMargin / 100)
- *    - Fixed Amount:
- *      MinimumProfitPrice = CostPrice + MinimumProfitMargin
- *      MaximumProfitPrice = CostPrice + MaximumProfitMargin
+ * 1. Fixed Price Mode:
+ *    Selling Price = Cost Price * (1 + Fixed Profit% / 100)
+ *    Initial = Minimum = Maximum = Fixed Selling Price.
  *
- * 2. Adaptive Upward Rounding:
- *    - < 1,000       -> nearest 10 or 50, always upward
- *    - 1,000–4,999   -> nearest 50, always upward
- *    - 5,000–9,999   -> nearest 100 or 250, always upward
- *    - 10,000–49,999 -> nearest 500, always upward
- *    - 50,000+       -> nearest 1,000, always upward
+ * 2. Negotiable Price Mode:
+ *    Minimum Selling Price = Cost Price * (1 + Minimum Profit% / 100)
+ *    Maximum Selling Price = Cost Price * (1 + Maximum Profit% / 100)
+ *    Initial Selling Price = Maximum Selling Price.
+ *    Cashier can negotiate down to Minimum Selling Price, but never below Min or above Max.
  *
- * 3. Invariant Boundaries:
- *    - CostPrice <= MinimumProfitPrice <= MaximumProfitPrice
- *    - Never round downward; always round upward.
- *    - Minimum Profit Price never falls below the configured minimum margin requirement.
- *    - If rounding causes an issue, automatically adjust to the next valid price point.
+ * 3. Cost Price is the sole active stored price for products.
+ *    All selling prices and margins are calculated dynamically in real-time from
+ *    Cost Price + current company pricing settings.
  */
+
+export type PricingMode = 'FIXED' | 'NEGOTIABLE';
+
+export interface PricingSettingsInput {
+  pricingMode?: PricingMode | string;
+  pricing_mode?: PricingMode | string;
+  fixedProfitMargin?: number | string;
+  fixed_profit_margin?: number | string;
+  minProfitMargin?: number | string;
+  min_profit_margin?: number | string;
+  maxProfitMargin?: number | string;
+  max_profit_margin?: number | string;
+  currencySymbol?: string;
+  currency_symbol?: string;
+}
+
+export interface CalculatedProductPricing {
+  mode: PricingMode;
+  costPrice: number;
+  minimumSellingPrice: number;
+  maximumSellingPrice: number;
+  initialSellingPrice: number;
+  sellingPrice: number;
+  fixedProfitPercent: number;
+  minProfitPercent: number;
+  maxProfitPercent: number;
+  allowedRangeText: string;
+}
+
+/**
+ * Standardized currency rounding helper (avoids floating point artifacts).
+ */
+export function roundToCurrency(val: number): number {
+  if (typeof val !== 'number' || isNaN(val) || val <= 0) return 0;
+  // Round to nearest whole number if fractional part is negligible, else 2 decimals
+  const rounded = Math.round(val * 100) / 100;
+  return Number.isInteger(rounded) ? rounded : Number(rounded.toFixed(2));
+}
+
+/**
+ * Centralized master function for all product pricing across the app:
+ * POS cart, product details, catalog, barcode stickers, and checkout validation.
+ */
+export function calculateProductPricing(
+  costPrice: number | string | undefined | null,
+  settings?: PricingSettingsInput | null
+): CalculatedProductPricing {
+  const cost = Math.max(0, Number(costPrice) || 0);
+
+  // Normalize pricing mode
+  const rawMode = String(settings?.pricingMode || settings?.pricing_mode || 'NEGOTIABLE').toUpperCase();
+  const mode: PricingMode = rawMode === 'FIXED' ? 'FIXED' : 'NEGOTIABLE';
+
+  // Fixed profit percent (default 30%)
+  const rawFixed = settings?.fixedProfitMargin ?? settings?.fixed_profit_margin ?? 30;
+  const fixedProfitPercent = Math.max(0, Number(rawFixed) || 0);
+
+  // Min profit percent (default 15%)
+  const rawMin = settings?.minProfitMargin ?? settings?.min_profit_margin ?? 15;
+  const minProfitPercent = Math.max(0, Number(rawMin) || 0);
+
+  // Max profit percent (default 30%, ensure >= minProfitPercent)
+  const rawMax = settings?.maxProfitMargin ?? settings?.max_profit_margin ?? 30;
+  const parsedMax = Math.max(0, Number(rawMax) || 0);
+  const maxProfitPercent = Math.max(minProfitPercent, parsedMax);
+
+  const sym = settings?.currencySymbol || settings?.currency_symbol || 'Rs.';
+
+  if (mode === 'FIXED') {
+    // Selling Price = Cost Price * (1 + Fixed Profit% / 100)
+    const rawPrice = cost > 0 ? cost * (1 + fixedProfitPercent / 100) : 0;
+    const finalPrice = roundToCurrency(rawPrice);
+
+    return {
+      mode: 'FIXED',
+      costPrice: cost,
+      minimumSellingPrice: finalPrice,
+      maximumSellingPrice: finalPrice,
+      initialSellingPrice: finalPrice,
+      sellingPrice: finalPrice,
+      fixedProfitPercent,
+      minProfitPercent,
+      maxProfitPercent,
+      allowedRangeText: `${sym} ${finalPrice.toLocaleString()}`,
+    };
+  }
+
+  // NEGOTIABLE MODE:
+  // Minimum Selling Price = Cost Price * (1 + Minimum Profit% / 100)
+  // Maximum Selling Price = Cost Price * (1 + Maximum Profit% / 100)
+  const rawMinPrice = cost > 0 ? cost * (1 + minProfitPercent / 100) : 0;
+  const rawMaxPrice = cost > 0 ? cost * (1 + maxProfitPercent / 100) : 0;
+
+  const minimumSellingPrice = roundToCurrency(rawMinPrice);
+  const maximumSellingPrice = roundToCurrency(rawMaxPrice);
+  const initialSellingPrice = maximumSellingPrice;
+
+  return {
+    mode: 'NEGOTIABLE',
+    costPrice: cost,
+    minimumSellingPrice,
+    maximumSellingPrice,
+    initialSellingPrice,
+    sellingPrice: initialSellingPrice,
+    fixedProfitPercent,
+    minProfitPercent,
+    maxProfitPercent,
+    allowedRangeText: `${sym} ${minimumSellingPrice.toLocaleString()} - ${sym} ${maximumSellingPrice.toLocaleString()}`,
+  };
+}
 
 export interface PricingCalculationOptions {
   lowRangeStep?: 10 | 50;

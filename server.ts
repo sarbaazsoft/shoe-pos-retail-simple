@@ -13,7 +13,7 @@ import returnRoutes from './src/server/routes/returnRoutes.ts';
 import customerRoutes from './src/server/routes/customerRoutes.ts';
 import supplierRoutes from './src/server/routes/supplierRoutes.ts';
 import inventoryRoutes from './src/server/routes/inventoryRoutes.ts';
-import brandCategoryRoutes from './src/server/routes/brandCategoryRoutes.ts';
+import brandCategoryRoutes, { brandsRouter, categoriesRouter } from './src/server/routes/brandCategoryRoutes.ts';
 import reportRoutes from './src/server/routes/reportRoutes.ts';
 import settingsRoutes from './src/server/routes/settingsRoutes.ts';
 import installRoutes from './src/server/routes/installRoutes.ts';
@@ -228,7 +228,7 @@ app.use(async (req, res, next) => {
   const isApi = reqPath.startsWith('/api/') || [
     'auth', 'products', 'pos', 'purchases', 'purchase-returns',
     'returns', 'customers', 'suppliers', 'inventory',
-    'brands-categories', 'reports', 'settings', 'backup', 'notifications', 'v1'
+    'brands-categories', 'brands', 'categories', 'reports', 'settings', 'backup', 'notifications', 'v1'
   ].some((prefix) => reqPath === `/${prefix}` || reqPath.startsWith(`/${prefix}/`));
 
   if (isApi) {
@@ -265,6 +265,8 @@ const apiRoutes: [string, any][] = [
   ['suppliers', supplierRoutes],
   ['inventory', inventoryRoutes],
   ['brands-categories', brandCategoryRoutes],
+  ['brands', brandsRouter],
+  ['categories', categoriesRouter],
   ['reports', reportRoutes],
   ['settings', settingsRoutes],
   ['backup', backupRoutes],

@@ -60,7 +60,7 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
   return (
     <header
       id="global-public-header"
-      className="sticky top-0 z-30 w-full h-16 flex items-center px-4 sm:px-6 justify-between gap-4 sm:gap-6 md:gap-8 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D1322] select-none text-slate-800 dark:text-slate-100 backdrop-blur-md transition-colors shadow-xs"
+      className="sticky top-0 z-30 w-full h-16 flex items-center px-4 rounded-b-lg border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg shadow-lg transition-colors duration-500 justify-between gap-4 sm:gap-6 md:gap-8 select-none text-slate-800 dark:text-slate-100"
     >
       {/* Brand identity & titles */}
       <div className="flex items-center gap-3 min-w-0">

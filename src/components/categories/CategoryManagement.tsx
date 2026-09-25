@@ -47,7 +47,9 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   // Delete confirmation modal
   const [deletingItem, setDeletingItem] = useState<{ id: number; name: string; productCount: number } | null>(null);
 
-  const isAdmin = currentUser?.role === 'ADMIN';
+  const userRole = (currentUser?.role || '').toLowerCase();
+  const isCashier = userRole === 'cashier';
+  const isAdmin = !isCashier && (userRole === 'admin' || userRole === 'manager');
   const defaultSettingLimit = companySettings?.low_stock_limit ?? companySettings?.lowStockLimit ?? 5;
 
   useEffect(() => {
@@ -232,7 +234,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
             <span>Refresh</span>
           </button>
 
-          {isAdmin ? (
+          {isAdmin && !isCashier && (
             <button
               onClick={openAddModal}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white text-xs font-bold border border-purple-400/40 shadow-md shadow-purple-600/25 dark:from-purple-600 dark:to-indigo-600 dark:hover:from-purple-500 dark:hover:to-indigo-500 dark:border-purple-400/40 dark:shadow-[0_0_14px_rgba(147,51,234,0.3)] active:scale-[0.98] cursor-pointer transition"
@@ -240,10 +242,6 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Add New Category</span>
             </button>
-          ) : (
-            <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-purple-950/40 text-slate-500 dark:text-purple-300/80 border border-slate-200 dark:border-purple-800/60 text-xs font-semibold">
-              Admin rights required
-            </span>
           )}
         </div>
       </motion.div>
@@ -478,7 +476,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       </motion.div>
 
       {/* ADD / EDIT CATEGORY MODAL */}
-      {isAddModalOpen && (
+      {isAddModalOpen && !isCashier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
           <div className="bg-white dark:bg-[#131B2E] rounded-2xl shadow-2xl border border-slate-200 dark:border-purple-800/80 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-5 border-b border-slate-200 dark:border-purple-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-gradient-to-r dark:from-purple-900 dark:via-indigo-950 dark:to-slate-900">
@@ -606,7 +604,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       )}
 
       {/* DELETE CONFIRMATION MODAL */}
-      {deletingItem && (
+      {deletingItem && !isCashier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
           <div className="bg-white dark:bg-[#0E1628] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#1A263D] w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-5 border-b border-rose-700 flex items-center justify-between bg-rose-600 text-white">

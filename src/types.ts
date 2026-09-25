@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'CASHIER';
+export type UserRole = 'ADMIN' | 'CASHIER' | 'MANAGER' | string;
 export type UserStatus = 'PENDING' | 'APPROVED';
 
 export interface User {
@@ -45,6 +45,10 @@ export interface CompanySettings {
   invoiceFooter: string;
   invoice_footer?: string;
   lowStockLimit: number;
+  pricingMode?: 'FIXED' | 'NEGOTIABLE';
+  pricing_mode?: 'FIXED' | 'NEGOTIABLE';
+  fixedProfitMargin?: number;
+  fixed_profit_margin?: number;
   minProfitMargin?: number;
   min_profit_margin?: number;
   maxProfitMargin?: number;

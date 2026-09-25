@@ -98,8 +98,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     companySettings?.companyName ||
     'DWU Shoes';
 
+  const userRole = (currentUser?.role || '').toLowerCase();
+  const isCashier = userRole === 'cashier';
+
   // Flat navigation sections
-  const sections: NavSection[] = [
+  const rawSections: NavSection[] = [
     {
       header: 'COUNTER & INVENTORY',
       items: [
@@ -127,6 +130,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
   ];
+
+  const sections: NavSection[] = rawSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (isCashier && (item.id === 'purchases' || item.id === 'brands' || item.id === 'categories')) {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const handleItemClick = (tabId: string) => {
     onTabChange(tabId);

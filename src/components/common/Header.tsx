@@ -27,6 +27,13 @@ import {
   ShieldCheck,
   User,
   ShoppingCart,
+  Store,
+  Tag,
+  Layers,
+  BookOpen,
+  Building2,
+  RotateCcw,
+  TrendingUp,
 } from 'lucide-react';
 import { UserAvatar } from './UserAvatar.tsx';
 import { ThemeDropdown } from './ThemeDropdown.tsx';
@@ -88,20 +95,33 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   // Quick navigation screens list
+  const storeName =
+    _companySettings?.name ||
+    _companySettings?.company_name ||
+    _companySettings?.companyName ||
+    'TJ Shoes';
+
+  const userRole = (currentUser?.role || '').toLowerCase();
+  const isCashier = userRole === 'cashier';
+
   const availableScreens = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'pos', label: 'POS Terminal', shortcut: 'F1' },
-    { id: 'inventory', label: 'Shoe Catalog', shortcut: 'F2' },
-    { id: 'brands', label: 'Brands & SKU Prefixes' },
-    { id: 'categories', label: 'Categories' },
-    { id: 'ledger', label: 'Stock Movement Ledger' },
-    { id: 'purchases', label: 'Stock Purchases', shortcut: 'F3' },
-    { id: 'suppliers', label: 'Suppliers & Vendors' },
-    { id: 'returns', label: 'Sales Returns', shortcut: 'F4' },
-    { id: 'customers', label: 'Customers', shortcut: 'F5' },
-    { id: 'reports', label: 'Reports & Analytics', shortcut: 'F6' },
-    { id: 'settings', label: 'Settings', shortcut: 'F7' },
-  ];
+    { id: 'pos', label: 'POS Terminal', icon: ShoppingCart, shortcut: 'F1' },
+    { id: 'inventory', label: 'Shoe Catalog', icon: Boxes, shortcut: 'F2' },
+    { id: 'brands', label: 'Brands', icon: Tag },
+    { id: 'categories', label: 'Categories', icon: Layers },
+    { id: 'ledger', label: 'Stock Ledger', icon: BookOpen },
+    { id: 'purchases', label: 'Purchases', icon: Truck, shortcut: 'F3' },
+    { id: 'suppliers', label: 'Suppliers', icon: Building2 },
+    { id: 'returns', label: 'Returns', icon: RotateCcw, shortcut: 'F4' },
+    { id: 'customers', label: 'Customers', icon: Users, shortcut: 'F5' },
+    { id: 'reports', label: 'Reports', icon: TrendingUp, shortcut: 'F6' },
+    { id: 'settings', label: 'Settings', icon: Settings, shortcut: 'F7' },
+  ].filter((s) => {
+    if (isCashier && (s.id === 'purchases' || s.id === 'brands' || s.id === 'categories' || s.id === 'settings')) {
+      return false;
+    }
+    return true;
+  });
 
   // Handle global search input
   useEffect(() => {
@@ -246,21 +266,100 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white dark:bg-[#0D1322] border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 select-none no-print sticky top-0 z-20 h-12 sm:h-13 flex items-center px-4 sm:px-6 justify-between gap-3 sm:gap-4 transition-colors">
-      {/* LEFT: Mobile Menu Button + Global Search Bar */}
-      <div className="flex items-center gap-2 sm:gap-2.5 flex-1 max-w-sm sm:max-w-md min-w-0">
+    <header className="px-4 rounded-b-lg border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg shadow-lg transition-colors duration-500 sticky top-0 z-30 select-none text-slate-800 dark:text-slate-100 flex items-center justify-between gap-2.5 sm:gap-4 min-h-[3.6rem] py-1.5 no-print">
+      {/* LEFT: Logo / Branding + Primary Navigation Tabs */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
         {/* Mobile Menu Toggle Button (< lg) */}
         <button
           type="button"
           onClick={onToggleMobileMenu}
-          className="lg:hidden h-8.5 w-8.5 sm:h-9 sm:w-9 flex items-center justify-center p-1.5 rounded-lg border border-slate-200 dark:border-purple-400/40 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-purple-500/20 dark:text-purple-200 dark:hover:bg-purple-500/30 dark:hover:text-white dark:shadow-[0_0_14px_rgba(147,51,234,0.2)] cursor-pointer shrink-0 shadow-2xs transition"
+          className="lg:hidden h-8.5 w-8.5 flex items-center justify-center p-1.5 rounded-lg border border-slate-200 dark:border-purple-400/40 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-purple-500/20 dark:text-purple-200 dark:hover:bg-purple-500/30 dark:hover:text-white cursor-pointer shrink-0 shadow-2xs transition"
           aria-label="Toggle navigation menu"
         >
-          <Menu className="w-4 h-4 stroke-[2.2] dark:text-purple-200" />
+          <Menu className="w-4 h-4 stroke-[2.2]" />
         </button>
 
-        {/* Global Search Bar (Exact match to Reference Image) */}
-        <div ref={searchRef} className="relative w-full min-w-0">
+        {/* Existing Store Logo & Branding */}
+        <button
+          type="button"
+          onClick={() => onTabChange?.(isCashier ? 'pos' : 'dashboard')}
+          className="flex items-center gap-2 px-1.5 py-1 rounded-lg hover:bg-slate-100/70 dark:hover:bg-white/5 transition shrink-0 cursor-pointer text-left group"
+          title={`Switch to ${isCashier ? 'POS Terminal' : 'Dashboard'}`}
+        >
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 via-indigo-600 to-purple-700 text-white flex items-center justify-center font-bold shadow-sm shadow-purple-600/25 dark:shadow-[0_0_12px_rgba(147,51,234,0.35)] border border-purple-400/40 shrink-0 group-hover:scale-105 transition-transform">
+            <Store className="w-4 h-4" />
+          </div>
+          <div className="hidden xl:block min-w-0">
+            <span className="font-bold text-slate-900 dark:text-white text-xs tracking-tight truncate block leading-tight">
+              {storeName}
+            </span>
+            <span className="text-[10px] text-purple-600 dark:text-purple-300 font-semibold flex items-center gap-1 leading-none mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+              <span>{isCashier ? 'Cashier Mode' : 'Online Store'}</span>
+            </span>
+          </div>
+        </button>
+
+        {/* Subtle separator */}
+        <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-indigo-500/20 shrink-0" />
+
+        {/* Primary Horizontal Navigation Tabs */}
+        <nav
+          className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1 min-w-0 flex-1"
+          aria-label="Main Navigation"
+        >
+          {availableScreens.map((screen) => {
+            const isActive = currentTab === screen.id;
+            const Icon = screen.icon;
+            return (
+              <button
+                key={screen.id}
+                type="button"
+                data-tab={screen.id}
+                data-active={isActive ? 'true' : 'false'}
+                aria-selected={isActive}
+                onClick={() => onTabChange?.(screen.id)}
+                className={`tab-underline-link relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors duration-200 shrink-0 whitespace-nowrap cursor-pointer select-none ${
+                  isActive
+                    ? 'text-purple-700 dark:text-purple-200 font-bold bg-purple-50/70 dark:bg-purple-500/15'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-200 hover:bg-purple-50/60 dark:hover:bg-purple-500/10'
+                }`}
+                title={screen.shortcut ? `${screen.label} (${screen.shortcut})` : screen.label}
+              >
+                {Icon && (
+                  <Icon
+                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                      isActive
+                        ? 'text-purple-600 dark:text-purple-300 stroke-[2.2]'
+                        : 'text-slate-400 dark:text-slate-400 stroke-[1.8]'
+                    }`}
+                  />
+                )}
+                <span>{screen.label}</span>
+
+                {/* Animated connected indicator that travels smoothly from previous tab to next tab */}
+                {isActive && (
+                  <motion.div
+                    layoutId="header-active-nav-underline"
+                    className="absolute bottom-0 left-1 right-1 h-[3px] rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 shadow-[0_2px_8px_rgba(147,51,234,0.45)] pointer-events-none"
+                    transition={{
+                      type: 'spring',
+                      stiffness: 420,
+                      damping: 34,
+                      mass: 0.8,
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* RIGHT: Notifications, Search, Theme Dropdown, and User Profile */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pl-1">
+        {/* Global Search Bar */}
+        <div ref={searchRef} className="relative w-28 sm:w-40 md:w-48 lg:w-56 min-w-0">
           <div className="relative flex items-center">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
             <input
@@ -276,8 +375,8 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowUserDropdown(false);
                 setShowThemeDropdown(false);
               }}
-              placeholder="Search products, customers, sales..."
-              className="h-8 sm:h-8.5 w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200/90 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+              placeholder="Search..."
+              className="h-8 sm:h-8.5 w-full bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-indigo-500/20 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition-all"
             />
             {searchQuery && (
               <button
@@ -301,98 +400,95 @@ export const Header: React.FC<HeaderProps> = ({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96, y: -8 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ transformOrigin: 'top center' }}
-                className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-[#0E1628] border border-slate-200 dark:border-[#1A263D] rounded-xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto space-y-1"
+                style={{ transformOrigin: 'top right' }}
+                className="absolute right-0 w-72 sm:w-80 top-full mt-2 bg-white dark:bg-[#0E1628] border border-slate-200 dark:border-[#1A263D] rounded-xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto space-y-1"
               >
-              {/* Screen Jumps */}
-              {searchResults.screens.length > 0 && (
-                <div className="mb-1">
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
-                    Navigation
-                  </div>
-                  {searchResults.screens.map((screen) => (
-                    <button
-                      key={screen.id}
-                      type="button"
-                      onClick={() => handleSelectScreen(screen.id)}
-                      className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
-                    >
-                      <span>{screen.label}</span>
-                      {screen.shortcut && (
-                        <kbd className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#162238] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#1E2D4A]">
-                          {screen.shortcut}
-                        </kbd>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Products Found */}
-              {searchResults.products.length > 0 && (
-                <div className="mb-1">
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
-                    Products
-                  </div>
-                  {searchResults.products.map((prod) => (
-                    <button
-                      key={prod.id}
-                      type="button"
-                      onClick={() => handleSelectScreen('inventory')}
-                      className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <Boxes className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{prod.article || prod.name}</span>
-                      </div>
-                      <span className="font-mono text-[11px] text-slate-400 shrink-0">
-                        {prod.sku}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Customers Found */}
-              {searchResults.customers.length > 0 && (
-                <div>
-                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
-                    Customers
-                  </div>
-                  {searchResults.customers.map((cust) => (
-                    <button
-                      key={cust.id}
-                      type="button"
-                      onClick={() => handleSelectScreen('customers')}
-                      className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{cust.name}</span>
-                      </div>
-                      <span className="text-[11px] text-slate-400 shrink-0">
-                        {cust.phone}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {searchResults.screens.length === 0 &&
-                searchResults.products.length === 0 &&
-                searchResults.customers.length === 0 && (
-                  <div className="p-3 text-center text-xs text-slate-400">
-                    No results for "{searchQuery}"
+                {/* Screen Jumps */}
+                {searchResults.screens.length > 0 && (
+                  <div className="mb-1">
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
+                      Navigation
+                    </div>
+                    {searchResults.screens.map((screen) => (
+                      <button
+                        key={screen.id}
+                        type="button"
+                        onClick={() => handleSelectScreen(screen.id)}
+                        className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
+                      >
+                        <span>{screen.label}</span>
+                        {screen.shortcut && (
+                          <kbd className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#162238] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#1E2D4A]">
+                            {screen.shortcut}
+                          </kbd>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
 
-      {/* RIGHT: Notifications, Theme Dropdown, and User Profile */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pl-1">
+                {/* Products Found */}
+                {searchResults.products.length > 0 && (
+                  <div className="mb-1">
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
+                      Products
+                    </div>
+                    {searchResults.products.map((prod) => (
+                      <button
+                        key={prod.id}
+                        type="button"
+                        onClick={() => handleSelectScreen('inventory')}
+                        className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Boxes className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{prod.article || prod.name}</span>
+                        </div>
+                        <span className="font-mono text-[11px] text-slate-400 shrink-0">
+                          {prod.sku}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Customers Found */}
+                {searchResults.customers.length > 0 && (
+                  <div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
+                      Customers
+                    </div>
+                    {searchResults.customers.map((cust) => (
+                      <button
+                        key={cust.id}
+                        type="button"
+                        onClick={() => handleSelectScreen('customers')}
+                        className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{cust.name}</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400 shrink-0">
+                          {cust.phone}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {searchResults.screens.length === 0 &&
+                  searchResults.products.length === 0 &&
+                  searchResults.customers.length === 0 && (
+                    <div className="p-3 text-center text-xs text-slate-400">
+                      No results for "{searchQuery}"
+                    </div>
+                  )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         {/* Real-time Notifications Menu */}
         <div ref={notifRef} className="relative">
           <button
@@ -578,40 +674,6 @@ export const Header: React.FC<HeaderProps> = ({
               }
             }}
           />
-
-          {/* Quick return button for Admins browsing in Cashier Mode */}
-          {Boolean(
-            ((currentUser?.originalRole || '').toUpperCase() === 'ADMIN' ||
-              (currentUser?.isSimulatedCashier && (currentUser?.originalRole || '').toUpperCase() !== 'CASHIER')) &&
-              (currentUser?.role || '').toUpperCase() === 'CASHIER'
-          ) && (
-            <button
-              type="button"
-              id="header-quick-browse-admin-btn"
-              onClick={() => {
-                if (onSwitchRole) {
-                  onSwitchRole('ADMIN');
-                } else {
-                  try {
-                    const cached = localStorage.getItem('pos_current_user');
-                    if (cached) {
-                      const u = JSON.parse(cached);
-                      if ((u.originalRole || '').toUpperCase() === 'ADMIN') {
-                        u.role = 'ADMIN';
-                        u.isSimulatedCashier = false;
-                        localStorage.setItem('pos_current_user', JSON.stringify(u));
-                      }
-                    }
-                  } catch {}
-                }
-              }}
-              className="hidden sm:inline-flex items-center h-8 sm:h-8.5 gap-2 px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-700/60 text-blue-700 dark:text-blue-300 text-xs font-bold transition shadow-2xs cursor-pointer"
-              title="You are browsing in Cashier Mode. Click to switch back to Admin mode."
-            >
-              <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-              <span>Browse as Admin</span>
-            </button>
-          )}
 
           {/* User Avatar + Name + Dropdown Chevron */}
           <div ref={userRef} className="relative">

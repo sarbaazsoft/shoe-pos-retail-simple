@@ -22,6 +22,24 @@ import { OfflineToastNotification } from './components/common/OfflineToastNotifi
 import { PublicLayout } from './components/common/PublicLayout.tsx';
 import type { ActiveExchange } from './types.ts';
 
+function resolveTargetTab(requestedTab: string | undefined | null, user: any): string {
+  const role = (user?.role || '').toLowerCase();
+  const isCashier = role === 'cashier';
+  const clean = (requestedTab || '').toLowerCase().trim();
+
+  if (isCashier) {
+    if (!clean || clean === 'dashboard' || clean === 'purchases' || clean === 'settings') {
+      return 'pos';
+    }
+    return clean;
+  }
+
+  if (!clean || clean === 'dashboard') {
+    return 'dashboard';
+  }
+  return clean;
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<any | null>(() => {
     try {
@@ -52,7 +70,17 @@ export default function App() {
       return '';
     }
   });
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('pos_current_user');
+      const user = stored ? JSON.parse(stored) : null;
+      const pathname = window.location.pathname.replace(/^\//, '');
+      const searchTab = new URLSearchParams(window.location.search).get('tab');
+      return resolveTargetTab(searchTab || pathname, user);
+    } catch {
+      return 'dashboard';
+    }
+  });
   const [activeExchangeForPos, setActiveExchangeForPos] = useState<ActiveExchange | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -60,6 +88,44 @@ export default function App() {
   const [catalogBrandFilter, setCatalogBrandFilter] = useState<number | undefined>(undefined);
   const [catalogCategoryFilter, setCatalogCategoryFilter] = useState<number | undefined>(undefined);
   const [selectedSupplierForPurchase, setSelectedSupplierForPurchase] = useState<{ id?: number; name?: string } | null>(null);
+
+  const handleTabChange = (targetTab: string) => {
+    const valid = resolveTargetTab(targetTab, currentUser);
+    setCurrentTab(valid);
+    const isSpecialUrl =
+      window.location.pathname === '/installationWizard' ||
+      window.location.pathname === '/install';
+    if (!isSpecialUrl) {
+      window.history.replaceState({}, '', `/${valid}`);
+    }
+  };
+
+  // Route Guard: enforce immediate redirection away from purchases or dashboard for cashiers
+  useEffect(() => {
+    const role = (currentUser?.role || '').toLowerCase();
+    const isCashier = role === 'cashier';
+    if (isCashier) {
+      if (currentTab === 'purchases' || currentTab === 'settings' || currentTab === 'dashboard') {
+        setCurrentTab('pos');
+        if (window.location.pathname !== '/installationWizard' && window.location.pathname !== '/install') {
+          window.history.replaceState({}, '', '/pos');
+        }
+      }
+    }
+  }, [currentUser, currentTab]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const pathname = window.location.pathname.replace(/^\//, '');
+      const searchTab = new URLSearchParams(window.location.search).get('tab');
+      const valid = resolveTargetTab(searchTab || pathname, currentUser);
+      setCurrentTab(valid);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentUser]);
 
   // Server installation & commissioning state (persisted locally so offline reloads know the system was already installed)
   const [isInstalled, setIsInstalled] = useState<boolean | null>(() => {
@@ -204,6 +270,13 @@ export default function App() {
               try {
                 localStorage.setItem('pos_current_user', JSON.stringify(cashierUser));
               } catch {}
+              setCurrentTab((prevTab) => {
+                const target = resolveTargetTab(prevTab, cashierUser);
+                if (window.location.pathname !== '/installationWizard' && window.location.pathname !== '/install') {
+                  window.history.replaceState({}, '', `/${target}`);
+                }
+                return target;
+              });
             } else {
               // Account is Administrator: preserve simulated cashier browsing if active
               setCurrentUser((prev: any) => {
@@ -245,7 +318,8 @@ export default function App() {
       localStorage.removeItem('pos_current_user');
     } catch {}
     setCurrentUser(null);
-    setCurrentTab('pos');
+    setCurrentTab('dashboard');
+    window.history.replaceState({}, '', '/');
   };
 
   const handleSwitchRole = (newRole: 'ADMIN' | 'CASHIER') => {
@@ -269,6 +343,10 @@ export default function App() {
     });
     if (newRole === 'CASHIER') {
       setCurrentTab('pos');
+      window.history.replaceState({}, '', '/pos');
+    } else {
+      setCurrentTab('dashboard');
+      window.history.replaceState({}, '', '/dashboard');
     }
   };
 
@@ -307,36 +385,43 @@ export default function App() {
         e.preventDefault();
       }
 
+      const role = (currentUser?.role || '').toLowerCase();
+      const isCashier = role === 'cashier';
+
       switch (e.key) {
         case 'F1':
-          setCurrentTab('pos');
+          handleTabChange('pos');
           break;
         case 'F2':
-          setCurrentTab('inventory');
+          handleTabChange('inventory');
           break;
         case 'F3':
-          setCurrentTab('purchases');
+          if (!isCashier) {
+            handleTabChange('purchases');
+          }
           break;
         case 'F4':
-          setCurrentTab('returns');
+          handleTabChange('returns');
           break;
         case 'F5':
-          setCurrentTab('customers');
+          handleTabChange('customers');
           break;
         case 'F6':
-          setCurrentTab('reports');
+          handleTabChange('reports');
           break;
         case 'F7':
-          setCurrentTab('settings');
+          if (!isCashier) {
+            handleTabChange('settings');
+          }
           break;
         case 'F8':
           // Shortcut for 'Delete Sale' (Clears active cart / cancels sale transaction)
-          setCurrentTab('pos');
+          handleTabChange('pos');
           window.dispatchEvent(new CustomEvent('pos:delete-sale'));
           break;
         case 'F9':
           // Shortcut for 'Print Receipt' (Completes checkout & prints receipt, or prints active invoice)
-          setCurrentTab('pos');
+          handleTabChange('pos');
           window.dispatchEvent(new CustomEvent('pos:print-receipt'));
           break;
         default:
@@ -346,7 +431,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, []);
+  }, [currentUser]);
 
   // Listen for session expiry from API service
   useEffect(() => {
@@ -452,10 +537,12 @@ export default function App() {
               localStorage.setItem('pos_current_user', JSON.stringify(normalizedUser));
               localStorage.setItem('pos_is_installed', 'true');
             } catch {}
-            if (dbRole === 'CASHIER') {
+            if (dbRole.toLowerCase() === 'cashier') {
               setCurrentTab('pos');
+              window.history.replaceState({}, '', '/pos');
             } else {
               setCurrentTab('dashboard');
+              window.history.replaceState({}, '', '/dashboard');
             }
             initializeApp();
           }}
@@ -465,7 +552,7 @@ export default function App() {
           {/* SIDER: Stays open permanently on large display (laptop/desktop) */}
           <Sidebar
             currentTab={currentTab}
-            onTabChange={(tab) => setCurrentTab(tab)}
+            onTabChange={(tab) => handleTabChange(tab)}
             currentUser={currentUser}
             companySettings={companySettings}
             onLogout={handleLogout}
@@ -479,7 +566,7 @@ export default function App() {
             {/* TOP BAR: Breadcrumbs & status on desktop, mobile bar with menu button on smaller screens */}
             <Header
               currentTab={currentTab}
-              onTabChange={(tab) => setCurrentTab(tab)}
+              onTabChange={(tab) => handleTabChange(tab)}
               currentUser={currentUser}
               companySettings={companySettings}
               onLogout={handleLogout}
@@ -500,11 +587,20 @@ export default function App() {
                   className="w-full h-full"
                 >
                   {currentTab === 'dashboard' && (
-                    <DashboardOverview
-                      currentUser={currentUser}
-                      companySettings={companySettings}
-                      onNavigate={(tab) => setCurrentTab(tab)}
-                    />
+                    (currentUser?.role || '').toLowerCase() === 'cashier' ? (
+                      <PosTerminal
+                        currentUser={currentUser}
+                        companySettings={companySettings}
+                        initialExchange={activeExchangeForPos}
+                        onClearInitialExchange={() => setActiveExchangeForPos(null)}
+                      />
+                    ) : (
+                      <DashboardOverview
+                        currentUser={currentUser}
+                        companySettings={companySettings}
+                        onNavigate={(tab) => handleTabChange(tab)}
+                      />
+                    )
                   )}
 
                   {currentTab === 'pos' && (
@@ -532,7 +628,7 @@ export default function App() {
                       onNavigateToInventory={(brandId) => {
                         setCatalogBrandFilter(brandId);
                         setCatalogCategoryFilter(undefined);
-                        setCurrentTab('inventory');
+                        handleTabChange('inventory');
                       }}
                     />
                   )}
@@ -544,7 +640,7 @@ export default function App() {
                       onNavigateToInventory={(categoryId) => {
                         setCatalogBrandFilter(undefined);
                         setCatalogCategoryFilter(categoryId);
-                        setCurrentTab('inventory');
+                        handleTabChange('inventory');
                       }}
                     />
                   )}
@@ -552,13 +648,22 @@ export default function App() {
                   {currentTab === 'ledger' && <StockLedgerView />}
 
                   {currentTab === 'purchases' && (
-                    <PurchaseManagement
-                      currentUser={currentUser}
-                      companySettings={companySettings}
-                      initialSupplierId={selectedSupplierForPurchase?.id}
-                      initialSupplierName={selectedSupplierForPurchase?.name}
-                      onNavigateToSuppliers={() => setCurrentTab('suppliers')}
-                    />
+                    (currentUser?.role || '').toLowerCase() === 'cashier' ? (
+                      <PosTerminal
+                        currentUser={currentUser}
+                        companySettings={companySettings}
+                        initialExchange={activeExchangeForPos}
+                        onClearInitialExchange={() => setActiveExchangeForPos(null)}
+                      />
+                    ) : (
+                      <PurchaseManagement
+                        currentUser={currentUser}
+                        companySettings={companySettings}
+                        initialSupplierId={selectedSupplierForPurchase?.id}
+                        initialSupplierName={selectedSupplierForPurchase?.name}
+                        onNavigateToSuppliers={() => handleTabChange('suppliers')}
+                      />
+                    )
                   )}
 
                   {currentTab === 'suppliers' && (
@@ -566,8 +671,10 @@ export default function App() {
                       currentUser={currentUser}
                       companySettings={companySettings}
                       onNavigateToPurchase={(supId, supName) => {
-                        setSelectedSupplierForPurchase(supId || supName ? { id: supId, name: supName } : null);
-                        setCurrentTab('purchases');
+                        if ((currentUser?.role || '').toLowerCase() !== 'cashier') {
+                          setSelectedSupplierForPurchase(supId || supName ? { id: supId, name: supName } : null);
+                          handleTabChange('purchases');
+                        }
                       }}
                     />
                   )}
@@ -578,7 +685,7 @@ export default function App() {
                       companySettings={companySettings}
                       onStartExchange={(exchange) => {
                         setActiveExchangeForPos(exchange);
-                        setCurrentTab('pos');
+                        handleTabChange('pos');
                       }}
                     />
                   )}
@@ -595,18 +702,27 @@ export default function App() {
                   )}
 
                   {currentTab === 'settings' && (
-                    <SettingsView
-                      currentUser={currentUser}
-                      companySettings={companySettings}
-                      onSettingsUpdated={handleSettingsUpdated}
-                      onOpenInstallWizard={async () => {
-                        const statusRes = await api.install.status().catch(() => null);
-                        if (statusRes) {
-                          setIsInstalled(statusRes.isInstalled);
-                        }
-                        setShowInstallWizard(true);
-                      }}
-                    />
+                    (currentUser?.role || '').toLowerCase() === 'cashier' ? (
+                      <PosTerminal
+                        currentUser={currentUser}
+                        companySettings={companySettings}
+                        initialExchange={activeExchangeForPos}
+                        onClearInitialExchange={() => setActiveExchangeForPos(null)}
+                      />
+                    ) : (
+                      <SettingsView
+                        currentUser={currentUser}
+                        companySettings={companySettings}
+                        onSettingsUpdated={handleSettingsUpdated}
+                        onOpenInstallWizard={async () => {
+                          const statusRes = await api.install.status().catch(() => null);
+                          if (statusRes) {
+                            setIsInstalled(statusRes.isInstalled);
+                          }
+                          setShowInstallWizard(true);
+                        }}
+                      />
+                    )
                   )}
                 </motion.div>
               </AnimatePresence>

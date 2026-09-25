@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Response } from 'express';
 import { pgClient } from '../../db/index.ts';
-import { requireAuth, requireAdmin } from '../auth.ts';
+import { requireAuth, requireAdmin, forbidCashier } from '../auth.ts';
 import type { AuthenticatedRequest } from '../auth.ts';
 import { calculateAutomaticPricing } from '../../utils/pricing.ts';
 
@@ -46,8 +46,8 @@ async function generatePaymentNumber(): Promise<string> {
   return `SPAY-${String(nextNum).padStart(6, '0')}`;
 }
 
-// List Purchases
-router.get('/', requireAuth, requireAdmin, async (req, res: Response) => {
+// List Purchases (Forbidden for Cashiers)
+router.get('/', requireAuth, forbidCashier, requireAdmin, async (req, res: Response) => {
   try {
     const { search, supplierId } = req.query;
     let query = `
@@ -85,8 +85,8 @@ router.get('/', requireAuth, requireAdmin, async (req, res: Response) => {
   }
 });
 
-// Single Purchase with items
-router.get('/:id', requireAuth, requireAdmin, async (req, res: Response) => {
+// Single Purchase with items (Forbidden for Cashiers)
+router.get('/:id', requireAuth, forbidCashier, requireAdmin, async (req, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     const purRes = await pgClient.query(
@@ -135,8 +135,8 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res: Response) => {
   }
 });
 
-// Create Purchase (Atomic Stock Increment + Ledger Recording)
-router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+// Create Purchase (Atomic Stock Increment + Ledger Recording - Forbidden for Cashiers)
+router.post('/', requireAuth, forbidCashier, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const {
     supplierId,
     supplierName,
@@ -348,6 +348,16 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
     console.error('Purchase transaction failed:', err);
     res.status(400).json({ error: err.message || 'Failed to record purchase.' });
   }
+});
+
+// Update Purchase (Forbidden for Cashiers)
+router.put('/:id', requireAuth, forbidCashier, requireAdmin, async (_req, res: Response) => {
+  return res.status(403).json({ error: 'Direct modification of historical purchases is restricted.' });
+});
+
+// Delete Purchase (Forbidden for Cashiers)
+router.delete('/:id', requireAuth, forbidCashier, requireAdmin, async (_req, res: Response) => {
+  return res.status(403).json({ error: 'Deleting historical purchase records is restricted.' });
 });
 
 export default router;

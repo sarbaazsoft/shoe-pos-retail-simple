@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import type { Response } from 'express';
 import { pgClient } from '../../db/index.ts';
-import { requireAuth, requireAdmin } from '../auth.ts';
+import { requireAuth, requireAdmin, forbidCashier } from '../auth.ts';
 
 const router = Router();
+export const brandsRouter = Router();
+export const categoriesRouter = Router();
 
-// List Brands
-router.get('/brands', requireAuth, async (_req, res: Response) => {
+// Handlers for Brands
+const listBrandsHandler = async (_req: any, res: Response) => {
   try {
     const result = await pgClient.query(`
       SELECT b.id, b.name, COALESCE(b.logo, '') as logo, b.created_at,
@@ -21,10 +23,9 @@ router.get('/brands', requireAuth, async (_req, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to fetch brands: ' + err.message });
   }
-});
+};
 
-// Create Brand (Admin Only)
-router.post('/brands', requireAuth, requireAdmin, async (req, res: Response) => {
+const createBrandHandler = async (req: any, res: Response) => {
   try {
     const { name, logo } = req.body;
     if (!name || !name.trim()) {
@@ -46,10 +47,9 @@ router.post('/brands', requireAuth, requireAdmin, async (req, res: Response) => 
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to create brand: ' + err.message });
   }
-});
+};
 
-// Update Brand (Admin Only)
-router.put('/brands/:id', requireAuth, requireAdmin, async (req, res: Response) => {
+const updateBrandHandler = async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     const { name, logo } = req.body;
@@ -82,10 +82,9 @@ router.put('/brands/:id', requireAuth, requireAdmin, async (req, res: Response) 
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to update brand: ' + err.message });
   }
-});
+};
 
-// Delete Brand (Admin Only)
-router.delete('/brands/:id', requireAuth, requireAdmin, async (req, res: Response) => {
+const deleteBrandHandler = async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     const brand = await pgClient.query('SELECT name FROM brands WHERE id = $1', [id]);
@@ -102,10 +101,10 @@ router.delete('/brands/:id', requireAuth, requireAdmin, async (req, res: Respons
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to delete brand: ' + err.message });
   }
-});
+};
 
-// List Categories
-router.get('/categories', requireAuth, async (_req, res: Response) => {
+// Handlers for Categories
+const listCategoriesHandler = async (_req: any, res: Response) => {
   try {
     const result = await pgClient.query(`
       SELECT c.id, c.name, c.low_stock_limit, c.created_at,
@@ -120,10 +119,9 @@ router.get('/categories', requireAuth, async (_req, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to fetch categories: ' + err.message });
   }
-});
+};
 
-// Create Category (Admin Only)
-router.post('/categories', requireAuth, requireAdmin, async (req, res: Response) => {
+const createCategoryHandler = async (req: any, res: Response) => {
   try {
     const { name, lowStockLimit, low_stock_limit } = req.body;
     if (!name || !name.trim()) {
@@ -152,10 +150,9 @@ router.post('/categories', requireAuth, requireAdmin, async (req, res: Response)
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to create category: ' + err.message });
   }
-});
+};
 
-// Update Category (Admin Only)
-router.put('/categories/:id', requireAuth, requireAdmin, async (req, res: Response) => {
+const updateCategoryHandler = async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     const { name, lowStockLimit, low_stock_limit } = req.body;
@@ -183,10 +180,9 @@ router.put('/categories/:id', requireAuth, requireAdmin, async (req, res: Respon
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to update category: ' + err.message });
   }
-});
+};
 
-// Delete Category (Admin Only)
-router.delete('/categories/:id', requireAuth, requireAdmin, async (req, res: Response) => {
+const deleteCategoryHandler = async (req: any, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     const category = await pgClient.query('SELECT name FROM categories WHERE id = $1', [id]);
@@ -203,6 +199,37 @@ router.delete('/categories/:id', requireAuth, requireAdmin, async (req, res: Res
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to delete category: ' + err.message });
   }
-});
+};
+
+// Mount on combined brandCategoryRoutes (/brands-categories)
+router.get('/brands', requireAuth, listBrandsHandler);
+router.post('/brands', requireAuth, forbidCashier, requireAdmin, createBrandHandler);
+router.put('/brands/:id', requireAuth, forbidCashier, requireAdmin, updateBrandHandler);
+router.delete('/brands/:id', requireAuth, forbidCashier, requireAdmin, deleteBrandHandler);
+
+router.get('/categories', requireAuth, listCategoriesHandler);
+router.post('/categories', requireAuth, forbidCashier, requireAdmin, createCategoryHandler);
+router.put('/categories/:id', requireAuth, forbidCashier, requireAdmin, updateCategoryHandler);
+router.delete('/categories/:id', requireAuth, forbidCashier, requireAdmin, deleteCategoryHandler);
+
+// Mount on brandsRouter (/brands and /api/brands)
+brandsRouter.get('/', requireAuth, listBrandsHandler);
+brandsRouter.get('/brands', requireAuth, listBrandsHandler);
+brandsRouter.post('/', requireAuth, forbidCashier, requireAdmin, createBrandHandler);
+brandsRouter.post('/brands', requireAuth, forbidCashier, requireAdmin, createBrandHandler);
+brandsRouter.put('/:id', requireAuth, forbidCashier, requireAdmin, updateBrandHandler);
+brandsRouter.put('/brands/:id', requireAuth, forbidCashier, requireAdmin, updateBrandHandler);
+brandsRouter.delete('/:id', requireAuth, forbidCashier, requireAdmin, deleteBrandHandler);
+brandsRouter.delete('/brands/:id', requireAuth, forbidCashier, requireAdmin, deleteBrandHandler);
+
+// Mount on categoriesRouter (/categories and /api/categories)
+categoriesRouter.get('/', requireAuth, listCategoriesHandler);
+categoriesRouter.get('/categories', requireAuth, listCategoriesHandler);
+categoriesRouter.post('/', requireAuth, forbidCashier, requireAdmin, createCategoryHandler);
+categoriesRouter.post('/categories', requireAuth, forbidCashier, requireAdmin, createCategoryHandler);
+categoriesRouter.put('/:id', requireAuth, forbidCashier, requireAdmin, updateCategoryHandler);
+categoriesRouter.put('/categories/:id', requireAuth, forbidCashier, requireAdmin, updateCategoryHandler);
+categoriesRouter.delete('/:id', requireAuth, forbidCashier, requireAdmin, deleteCategoryHandler);
+categoriesRouter.delete('/categories/:id', requireAuth, forbidCashier, requireAdmin, deleteCategoryHandler);
 
 export default router;
