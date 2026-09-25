@@ -134,9 +134,9 @@ export interface Product {
   barcode: string;
   primaryImageUrl: string;
   description?: string;
-  purchasePrice: number;
-  costPrice?: number;
-  minSalePrice: number;
+  costPrice: number;
+  purchasePrice?: number;
+  minSalePrice?: number;
   maxSalePrice?: number;
   totalStock: number;
   lowStockLimit: number;

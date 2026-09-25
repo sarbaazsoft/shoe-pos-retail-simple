@@ -1193,7 +1193,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <span>Fixed Pricing Rule</span>
                   </div>
                   <p className="text-[11.5px] text-purple-800/90 dark:text-purple-300/90 leading-relaxed">
-                    When Fixed Price policy is selected, the barcode sticker tag price and selling price are calculated as: <strong>Cost Price + Profit Margin</strong>. At POS checkout, the price is strictly fixed and cannot be changed.
+                    When Fixed Price policy is selected, the barcode sticker tag price and selling price are calculated dynamically in real-time as: <strong>Cost Price + Profit Margin</strong>. At POS checkout, the price is strictly fixed. Profit margins apply dynamically in real time across all products—no need to update product records when changing margins.
                   </p>
                   <div className="mt-2 pt-2 border-t border-purple-200/80 dark:border-purple-800/40 flex flex-wrap items-center gap-3 text-xs font-mono text-purple-950 dark:text-purple-200">
                     <span>Example: Cost = {formData.currency_symbol} 1,000</span>
@@ -1295,7 +1295,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <span>Negotiable Pricing Rule</span>
                   </div>
                   <p className="text-[11.5px] text-indigo-800/90 dark:text-indigo-300/90 leading-relaxed">
-                    Tag Price is calculated as: <strong>Cost Price + Maximum Profit Margin</strong>. During POS checkout, the cashier can edit/negotiate the cart price down to a minimum of <strong>Cost Price + Minimum Profit Margin</strong>.
+                    Tag Price is calculated dynamically in real-time as: <strong>Cost Price + Maximum Profit Margin</strong>. During POS checkout, the cashier can edit/negotiate the cart price down to a minimum of <strong>Cost Price + Minimum Profit Margin</strong>. Any margin adjustment applies immediately in real time to all products without needing to update products in the database.
                   </p>
                   <div className="mt-2 pt-2 border-t border-indigo-200/80 dark:border-indigo-800/40 flex flex-wrap items-center gap-3 text-xs font-mono text-indigo-950 dark:text-indigo-200">
                     <span>Example: Cost = {formData.currency_symbol} 1,000</span>

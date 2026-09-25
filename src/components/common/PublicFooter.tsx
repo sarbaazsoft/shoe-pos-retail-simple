@@ -16,11 +16,11 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
   return (
     <footer
       id="global-public-footer"
-      className="relative z-10 w-full px-4 sm:px-8 py-3.5 rounded-t-lg border-t border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg text-xs text-slate-700 dark:text-slate-200 transition-colors duration-500 shadow-lg"
+      className="relative z-10 w-full px-4 sm:px-8 py-3.5 rounded-t-lg border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg text-xs text-slate-800 dark:text-slate-100 transition-colors duration-500 shadow-lg"
     >
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-800 dark:text-white">
+          <span className="font-bold text-slate-900 dark:text-white">
             &copy; {new Date().getFullYear()} {storeName}
           </span>
           <span className="text-slate-300 dark:text-slate-600">&bull;</span>
@@ -40,7 +40,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
               href="https://portpolio-eight-pi.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 hover:underline font-bold transition"
+              className="text-slate-900 dark:text-white hover:text-indigo-500 dark:hover:text-indigo-300 hover:underline font-bold transition"
             >
               SarbaazSoft
             </a>

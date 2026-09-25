@@ -206,23 +206,6 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
       ]
     );
 
-    // Automatically synchronize products based on pricing policy
-    try {
-      if (pricingMode === 'FIXED') {
-        await pgClient.query(
-          'UPDATE products SET min_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2), max_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2) WHERE purchase_price > 0',
-          [fixedProfitMargin]
-        );
-      } else {
-        await pgClient.query(
-          'UPDATE products SET min_sale_price = ROUND(purchase_price * (1 + $1 / 100.0), 2), max_sale_price = ROUND(purchase_price * (1 + $2 / 100.0), 2) WHERE purchase_price > 0',
-          [minProfitMargin, maxProfitMargin]
-        );
-      }
-    } catch (syncErr) {
-      console.warn('Could not batch synchronize products pricing:', syncErr);
-    }
-
     const s: any = updateRes.rows[0];
     res.json({
       message: 'Company settings updated successfully.',

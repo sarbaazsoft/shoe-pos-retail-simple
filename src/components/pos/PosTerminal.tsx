@@ -26,7 +26,7 @@ import { api } from '../../services/api.ts';
 import { playAudioFeedback } from '../../utils/audio.ts';
 import { InvoicePrintModal } from './InvoicePrintModal.tsx';
 import { ShoeExchangeModal } from './ShoeExchangeModal.tsx';
-import { formatStockPrice, cleanStockPriceInput, getProductRetailPrice } from '../../utils/priceFormat.ts';
+import { formatStockPrice, cleanStockPriceInput, getProductRetailPrice, getProductMinFloorPrice } from '../../utils/priceFormat.ts';
 import type { ActiveExchange } from '../../types.ts';
 import { offlineQueueService } from '../../services/offlineQueueService.ts';
 import { lookupCachedProductOffline, searchCachedProductsOffline } from '../../utils/offlineDb.ts';
@@ -536,10 +536,16 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
     }
   };
 
-  // Add product to POS Cart
+  // Add product to POS Cart - Prices calculated in REAL-TIME dynamically from costPrice + companySettings
   const addProductToCart = (product: any) => {
     const prodIdentifier = product.article || product.name || 'Shoe';
-    const cost = Number(product.purchasePrice) || 0;
+    const cost = Number(
+      product.costPrice !== undefined && product.costPrice !== null
+        ? product.costPrice
+        : product.cost_price !== undefined && product.cost_price !== null
+        ? product.cost_price
+        : product.purchasePrice || product.purchase_price || 0
+    );
 
     const maxMarginThreshold = isFixedPolicy
       ? fixedProfitMarginSetting
@@ -565,37 +571,24 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
       ? companySettings.minProfitMarginPercent
       : parseFloat(companySettings?.min_profit_margin || companySettings?.minProfitMargin || '15') || 15;
 
-    // Minimum Allowed Floor: Cost + Minimum Profit Margin (or Cost + Fixed Profit Margin in Fixed mode)
-    const calculatedMinFloor = cost > 0
-      ? Math.round(cost * (1 + minMarginThreshold / 100))
-      : Number(product.minSalePrice || 0);
-
-    // Maximum Sale Price (MRP): Cost + Maximum Profit Margin (or Cost + Fixed Profit Margin in Fixed mode)
-    const calculatedMaxPrice = cost > 0
-      ? Math.round(cost * (1 + maxMarginThreshold / 100))
-      : 0;
-
-    // Sticker / Initial Retail Selling Price (matches barcode sticker printed on shoe box)
-    const stickerRetailPrice = getProductRetailPrice(product, companySettings);
+    // Real-time calculation of Tag Price (M.R.P.) and Minimum Floor
+    const calculatedRetailPrice = getProductRetailPrice({ ...product, costPrice: cost }, companySettings);
+    const calculatedMinFloor = getProductMinFloorPrice({ ...product, costPrice: cost }, companySettings);
 
     const maxSalePrice = isFixedPolicy
-      ? (stickerRetailPrice > 0 ? stickerRetailPrice : calculatedMaxPrice)
-      : (product.maxSalePrice !== undefined && product.maxSalePrice !== null && Number(product.maxSalePrice) > 0
-          ? Number(product.maxSalePrice)
-          : stickerRetailPrice > 0
-          ? stickerRetailPrice
-          : calculatedMaxPrice > 0
-          ? calculatedMaxPrice
-          : Number(product.minSalePrice || 0));
+      ? calculatedRetailPrice
+      : (calculatedRetailPrice > 0
+          ? calculatedRetailPrice
+          : (cost > 0 ? Math.round(cost * (1 + maxMarginThreshold / 100)) : 0));
 
-    const minSalePrice = calculatedMinFloor > 0
-      ? calculatedMinFloor
-      : Number(product.minSalePrice || 0);
+    const minSalePrice = isFixedPolicy
+      ? maxSalePrice
+      : (calculatedMinFloor > 0
+          ? calculatedMinFloor
+          : (cost > 0 ? Math.round(cost * (1 + minMarginThreshold / 100)) : 0));
 
     // Initial unit price in cart: EXACTLY identical to the price on the barcode sticker (M.R.P. / retail price)
-    const startingUnitPrice = stickerRetailPrice > 0
-      ? stickerRetailPrice
-      : maxSalePrice > 0
+    const startingUnitPrice = maxSalePrice > 0
       ? maxSalePrice
       : (minSalePrice > 0 ? minSalePrice : 0);
 
@@ -2119,7 +2112,7 @@ export const PosTerminal: React.FC<PosTerminalProps> = ({
 
     {/* Dedicated Footer Branding */}
     <div className="text-center py-2 text-[11px] text-slate-400 dark:text-slate-500 select-none">
-      Designed &amp; Developed by <span className="text-purple-600 dark:text-purple-400 font-semibold">SarbaazSoft</span> © 2026
+      Designed &amp; Developed by <span className="text-slate-700 dark:text-slate-200 font-semibold">SarbaazSoft</span> © 2026
     </div>
 
       {/* ADMIN OVERRIDE MODAL FOR MIN SALE PRICE VIOLATION */}

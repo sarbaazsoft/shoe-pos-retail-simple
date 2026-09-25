@@ -93,15 +93,17 @@ router.post('/checkout', requireAuth, async (req: AuthenticatedRequest, res: Res
   const user = req.user!;
   let verifiedOverrideAdminId: number | null = null;
 
-  // 1. Min Price Validation (Minimum price is automatically set to Cost Price + Minimum Profit Margin)
-  const settingsRes = await pgClient.query<{ min_profit_margin: string }>(
-    'SELECT min_profit_margin FROM company_settings LIMIT 1'
+  // 1. Min Price Validation (Minimum price is automatically calculated in real time: Cost Price + Minimum Profit Margin)
+  const settingsRes = await pgClient.query<{ min_profit_margin: string; pricing_mode: string; fixed_profit_margin: string }>(
+    'SELECT min_profit_margin, pricing_mode, fixed_profit_margin FROM company_settings LIMIT 1'
   );
-  const minMarginPercent = parseFloat(settingsRes.rows[0]?.min_profit_margin ?? '10') || 10;
+  const minMarginPercent = parseFloat(settingsRes.rows[0]?.min_profit_margin ?? '15') || 15;
+  const isFixedMode = (settingsRes.rows[0]?.pricing_mode || '').toUpperCase() === 'FIXED';
+  const fixedMarginPercent = parseFloat(settingsRes.rows[0]?.fixed_profit_margin ?? '30') || 30;
 
   for (const item of items) {
-    const prodRes = await pgClient.query<{ min_sale_price: string; purchase_price: string; name: string; article: string }>(
-      'SELECT min_sale_price, purchase_price, name, article FROM products WHERE id = $1',
+    const prodRes = await pgClient.query<{ cost_price: string; name: string; article: string }>(
+      'SELECT COALESCE(cost_price, 0) as cost_price, name, article FROM products WHERE id = $1',
       [item.productId]
     );
 
@@ -109,11 +111,11 @@ router.post('/checkout', requireAuth, async (req: AuthenticatedRequest, res: Res
       return res.status(404).json({ error: `Product ID ${item.productId} not found.` });
     }
 
-    const costPrice = parseFloat(prodRes.rows[0].purchase_price || '0');
-    // Minimum price is automatically set to Cost Price + Minimum Profit Margin
+    const costPrice = parseFloat(prodRes.rows[0].cost_price || '0');
+    // Minimum price is automatically set in real-time to Cost Price + Minimum Profit Margin
     const minSalePrice = costPrice > 0
-      ? Math.round(costPrice * (1 + minMarginPercent / 100))
-      : parseFloat(prodRes.rows[0].min_sale_price || '0');
+      ? (isFixedMode ? Math.round(costPrice * (1 + fixedMarginPercent / 100)) : Math.round(costPrice * (1 + minMarginPercent / 100)))
+      : 0;
     const effectiveUnitPrice = parseFloat(item.unitPrice);
     const prodIdentifier = prodRes.rows[0].article || prodRes.rows[0].name;
 
@@ -316,9 +318,8 @@ router.post('/checkout', requireAuth, async (req: AuthenticatedRequest, res: Res
         name: string;
         article: string;
         total_stock: number;
-        purchase_price: string;
-        min_sale_price: string;
-      }>('SELECT id, name, article, total_stock, purchase_price, min_sale_price FROM products WHERE id = $1 FOR UPDATE', [
+        cost_price: string;
+      }>('SELECT id, name, article, total_stock, COALESCE(cost_price, 0) as cost_price FROM products WHERE id = $1 FOR UPDATE', [
         item.productId,
       ]);
 
@@ -355,7 +356,7 @@ router.post('/checkout', requireAuth, async (req: AuthenticatedRequest, res: Res
         unitPrice,
         discount,
         subtotal,
-        purchasePrice: parseFloat(product.purchase_price), // Historical cost at time of sale
+        purchasePrice: parseFloat(product.cost_price || '0'), // Historical cost at time of sale
         prevStock,
         newStock,
       });

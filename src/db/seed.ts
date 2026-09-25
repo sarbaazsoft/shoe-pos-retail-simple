@@ -89,8 +89,7 @@ export async function initAndSeedDb() {
       barcode TEXT NOT NULL UNIQUE,
       primary_image_url TEXT DEFAULT '',
       description TEXT DEFAULT '',
-      purchase_price NUMERIC(12, 2) NOT NULL,
-      min_sale_price NUMERIC(12, 2) NOT NULL,
+      cost_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
       total_stock INTEGER NOT NULL DEFAULT 0,
       low_stock_limit INTEGER NOT NULL DEFAULT 5,
       active BOOLEAN NOT NULL DEFAULT true,
@@ -109,6 +108,15 @@ export async function initAndSeedDb() {
     -- Ensure schema columns exist on existing databases
     ALTER TABLE products ADD COLUMN IF NOT EXISTS article TEXT;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS primary_image_url TEXT;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(12, 2) DEFAULT 0.00;
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='purchase_price') THEN
+        UPDATE products SET cost_price = purchase_price WHERE (cost_price IS NULL OR cost_price = 0) AND purchase_price IS NOT NULL;
+      END IF;
+    END $$;
+    ALTER TABLE products DROP COLUMN IF EXISTS min_sale_price;
+    ALTER TABLE products DROP COLUMN IF EXISTS max_sale_price;
 
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
@@ -350,13 +358,13 @@ export async function initAndSeedDb() {
     const p1 = await pgClient.query<{ id: number }>(`
       INSERT INTO products (
         name, brand_id, category_id, article, sku, barcode, primary_image_url, 
-        description, purchase_price, min_sale_price, total_stock, low_stock_limit, active
+        description, cost_price, total_stock, low_stock_limit, active
       ) VALUES (
         'Air Zoom Velocity Runner',
         $1, $2, 'SP-0001', 'NIK-SP-0001-1', '01089230001',
         'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&auto=format&fit=crop&q=80',
         'Breathable mesh running shoes with responsive Zoom air cushioning sole.',
-        4200.00, 6499.00, 18, 5, true
+        4200.00, 18, 5, true
       ) RETURNING id;
     `, [nikeBrand.rows[0]?.id, sportsCat.rows[0]?.id]);
 
@@ -372,13 +380,12 @@ export async function initAndSeedDb() {
     const p2 = await pgClient.query<{ id: number }>(`
       INSERT INTO products (
         name, brand_id, category_id, article, sku, barcode, primary_image_url, 
-        description, purchase_price, min_sale_price, total_stock, low_stock_limit, active
+        description, cost_price, total_stock, low_stock_limit, active
       ) VALUES (
         'Classic Derby Leather Oxford',
         $1, $2, 'FO-0002', 'CLA-FO-0002-2', '01089230002',
-        'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=600&auto=format&fit=crop&q=80',
         'Handcrafted genuine full-grain leather dress shoes with Goodyear welted leather sole.',
-        5500.00, 8999.00, 12, 4, true
+        5500.00, 12, 4, true
       ) RETURNING id;
     `, [clarksBrand.rows[0]?.id, formalCat.rows[0]?.id]);
     const p2Id = p2.rows[0].id;
@@ -392,13 +399,13 @@ export async function initAndSeedDb() {
     const p3 = await pgClient.query<{ id: number }>(`
       INSERT INTO products (
         name, brand_id, category_id, article, sku, barcode, primary_image_url, 
-        description, purchase_price, min_sale_price, total_stock, low_stock_limit, active
+        description, cost_price, total_stock, low_stock_limit, active
       ) VALUES (
         'Cloudfoam Lifestyle Retro Sneaker',
         $1, $2, 'CA-0003', 'ADI-CA-0003-3', '01089230003',
         'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&auto=format&fit=crop&q=80',
         'Minimalist everyday sneakers with cushioned Cloudfoam sockliner for all-day comfort.',
-        3100.00, 4800.00, 24, 6, true
+        3100.00, 24, 6, true
       ) RETURNING id;
     `, [adidasBrand.rows[0]?.id, casualCat.rows[0]?.id]);
     const p3Id = p3.rows[0].id;
@@ -412,13 +419,13 @@ export async function initAndSeedDb() {
     const p4 = await pgClient.query<{ id: number }>(`
       INSERT INTO products (
         name, brand_id, category_id, article, sku, barcode, primary_image_url, 
-        description, purchase_price, min_sale_price, total_stock, low_stock_limit, active
+        description, cost_price, total_stock, low_stock_limit, active
       ) VALUES (
         'Bata Power Pro Court Trainer',
         $1, $2, 'SP-0004', 'BAT-SP-0004-4', '01089230004',
         'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&auto=format&fit=crop&q=80',
         'Durable court trainers with non-marking rubber outsole.',
-        2200.00, 3499.00, 3, 5, true
+        2200.00, 3, 5, true
       ) RETURNING id;
     `, [bataBrand.rows[0]?.id, sportsCat.rows[0]?.id]);
     const p4Id = p4.rows[0].id;

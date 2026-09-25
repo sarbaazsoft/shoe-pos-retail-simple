@@ -97,8 +97,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
       article TEXT DEFAULT '',
       primary_image_url TEXT DEFAULT '',
       description TEXT DEFAULT '',
-      purchase_price NUMERIC(12, 2) NOT NULL,
-      min_sale_price NUMERIC(12, 2) NOT NULL,
+      cost_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
       total_stock INTEGER NOT NULL DEFAULT 0,
       low_stock_limit INTEGER NOT NULL DEFAULT 5,
       active BOOLEAN NOT NULL DEFAULT true,
@@ -108,8 +107,15 @@ export async function ensureDatabaseSchema(): Promise<void> {
 
     ALTER TABLE products ADD COLUMN IF NOT EXISTS article TEXT DEFAULT '';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS primary_image_url TEXT DEFAULT '';
-    ALTER TABLE products ADD COLUMN IF NOT EXISTS max_sale_price NUMERIC(12, 2);
-    UPDATE products SET max_sale_price = min_sale_price WHERE max_sale_price IS NULL;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(12, 2) DEFAULT 0.00;
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='purchase_price') THEN
+        UPDATE products SET cost_price = purchase_price WHERE (cost_price IS NULL OR cost_price = 0) AND purchase_price IS NOT NULL;
+      END IF;
+    END $$;
+    ALTER TABLE products DROP COLUMN IF EXISTS min_sale_price;
+    ALTER TABLE products DROP COLUMN IF EXISTS max_sale_price;
 
     CREATE INDEX IF NOT EXISTS products_barcode_idx ON products(barcode);
     CREATE INDEX IF NOT EXISTS products_sku_idx ON products(sku);

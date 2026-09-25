@@ -302,36 +302,85 @@ router.post('/ai-suggest', requireAuth, async (req: AuthenticatedRequest, res: R
   }
 });
 
+// Company pricing settings helper
+export async function getCompanyPricingSettings(): Promise<{
+  pricingMode: string;
+  minProfitMargin: number;
+  maxProfitMargin: number;
+  fixedProfitMargin: number;
+  currencySymbol: string;
+}> {
+  try {
+    const res = await pgClient.query<any>(
+      'SELECT pricing_mode, min_profit_margin, max_profit_margin, fixed_profit_margin, currency_symbol FROM company_settings LIMIT 1'
+    );
+    const row = res.rows[0];
+    return {
+      pricingMode: (row?.pricing_mode || 'NEGOTIABLE').toUpperCase(),
+      minProfitMargin: parseFloat(row?.min_profit_margin ?? '15') || 15,
+      maxProfitMargin: parseFloat(row?.max_profit_margin ?? '30') || 30,
+      fixedProfitMargin: parseFloat(row?.fixed_profit_margin ?? '30') || 30,
+      currencySymbol: row?.currency_symbol || 'Rs.',
+    };
+  } catch {
+    return {
+      pricingMode: 'NEGOTIABLE',
+      minProfitMargin: 15,
+      maxProfitMargin: 30,
+      fixedProfitMargin: 30,
+      currencySymbol: 'Rs.',
+    };
+  }
+}
+
+// Real-time dynamic calculation of the 2 selling prices (minSalePrice & maxSalePrice)
+export function computeRealtimeSellingPrices(
+  costPrice: number,
+  settings: { pricingMode: string; minProfitMargin: number; maxProfitMargin: number; fixedProfitMargin: number }
+): { minSalePrice: number; maxSalePrice: number } {
+  const cost = Math.max(0, Number(costPrice) || 0);
+  if (cost <= 0) {
+    return { minSalePrice: 0, maxSalePrice: 0 };
+  }
+  if (settings.pricingMode === 'FIXED') {
+    const fixedPrice = Math.round(cost * (1 + settings.fixedProfitMargin / 100));
+    return { minSalePrice: fixedPrice, maxSalePrice: fixedPrice };
+  }
+  const minPrice = Math.round(cost * (1 + settings.minProfitMargin / 100));
+  const maxPrice = Math.round(cost * (1 + settings.maxProfitMargin / 100));
+  return {
+    minSalePrice: minPrice,
+    maxSalePrice: Math.max(minPrice, maxPrice),
+  };
+}
+
 // Fast POS Scanner Lookup by Barcode (matches product barcode directly)
 router.get('/lookup/:barcode', requireAuth, async (req, res: Response) => {
   try {
     const barcode = req.params.barcode.trim();
-    const result = await pgClient.query(
-      `SELECT p.id, p.name, p.brand_id, b.name as brand_name, COALESCE(b.logo, '') as brand_logo,
-              p.category_id, c.name as category_name, p.sku, p.article, p.barcode, 
-              p.primary_image_url, p.description, p.purchase_price, p.min_sale_price,
-              COALESCE(p.max_sale_price, p.min_sale_price) as max_sale_price, 
-              p.total_stock, COALESCE(c.low_stock_limit, p.low_stock_limit, 5) as low_stock_limit, p.active
-       FROM products p
-       LEFT JOIN brands b ON p.brand_id = b.id
-       LEFT JOIN categories c ON p.category_id = c.id
-       WHERE (p.barcode = $1 OR LOWER(p.sku) = LOWER($1) OR LOWER(COALESCE(p.article, '')) = LOWER($1)) AND p.active = true
-       LIMIT 1`,
-      [barcode]
-    );
+    const [result, settings] = await Promise.all([
+      pgClient.query(
+        `SELECT p.id, p.name, p.brand_id, b.name as brand_name, COALESCE(b.logo, '') as brand_logo,
+                p.category_id, c.name as category_name, p.sku, p.article, p.barcode, 
+                p.primary_image_url, p.description, COALESCE(p.cost_price, 0) as cost_price, 
+                p.total_stock, COALESCE(c.low_stock_limit, p.low_stock_limit, 5) as low_stock_limit, p.active
+         FROM products p
+         LEFT JOIN brands b ON p.brand_id = b.id
+         LEFT JOIN categories c ON p.category_id = c.id
+         WHERE (p.barcode = $1 OR LOWER(p.sku) = LOWER($1) OR LOWER(COALESCE(p.article, '')) = LOWER($1)) AND p.active = true
+         LIMIT 1`,
+        [barcode]
+      ),
+      getCompanyPricingSettings(),
+    ]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: `Product with barcode or SKU "${barcode}" not found.` });
     }
 
     const row: any = result.rows[0];
-    const minMargin = await getMinProfitMarginPercent();
-    const purchasePrice = parseFloat(row.purchase_price) || 0;
-    const maxSalePrice = parseFloat(row.max_sale_price || row.min_sale_price || 0);
-    // Minimum price is automatically set to Cost Price + Minimum Profit Margin
-    const autoMinSalePrice = purchasePrice > 0
-      ? Math.round(purchasePrice * (1 + minMargin / 100))
-      : parseFloat(row.min_sale_price || 0);
+    const costPrice = parseFloat(row.cost_price) || 0;
+    const { minSalePrice, maxSalePrice } = computeRealtimeSellingPrices(costPrice, settings);
 
     const product = {
       id: row.id,
@@ -346,9 +395,10 @@ router.get('/lookup/:barcode', requireAuth, async (req, res: Response) => {
       barcode: row.barcode,
       primaryImageUrl: row.primary_image_url,
       description: row.description,
-      purchasePrice,
+      costPrice,
+      purchasePrice: costPrice,
       maxSalePrice,
-      minSalePrice: autoMinSalePrice,
+      minSalePrice,
       totalStock: row.total_stock,
       lowStockLimit: row.low_stock_limit,
       active: row.active,
@@ -370,8 +420,7 @@ router.get('/', requireAuth, async (req, res: Response) => {
     let query = `
       SELECT p.id, p.name, p.brand_id, b.name as brand_name, COALESCE(b.logo, '') as brand_logo,
              p.category_id, c.name as category_name, p.sku, p.article, p.barcode, 
-             p.primary_image_url, p.description, p.purchase_price, p.min_sale_price,
-             COALESCE(p.max_sale_price, p.min_sale_price) as max_sale_price, 
+             p.primary_image_url, p.description, COALESCE(p.cost_price, 0) as cost_price, 
              p.total_stock, COALESCE(c.low_stock_limit, p.low_stock_limit, 5) as low_stock_limit, p.active, p.created_at, p.updated_at
       FROM products p
       LEFT JOIN brands b ON p.brand_id = b.id
@@ -401,17 +450,14 @@ router.get('/', requireAuth, async (req, res: Response) => {
 
     query += ` ORDER BY p.id DESC`;
 
-    const [result, minMargin] = await Promise.all([
+    const [result, settings] = await Promise.all([
       pgClient.query(query, params),
-      getMinProfitMarginPercent(),
+      getCompanyPricingSettings(),
     ]);
 
     const products = result.rows.map((row: any) => {
-      const cost = parseFloat(row.purchase_price) || 0;
-      const maxPrice = parseFloat(row.max_sale_price || row.min_sale_price || 0);
-      const autoMin = cost > 0
-        ? Math.round(cost * (1 + minMargin / 100))
-        : parseFloat(row.min_sale_price || 0);
+      const cost = parseFloat(row.cost_price) || 0;
+      const { minSalePrice, maxSalePrice } = computeRealtimeSellingPrices(cost, settings);
 
       return {
         id: row.id,
@@ -426,9 +472,10 @@ router.get('/', requireAuth, async (req, res: Response) => {
         barcode: row.barcode,
         primaryImageUrl: row.primary_image_url,
         description: row.description,
+        costPrice: cost,
         purchasePrice: cost,
-        maxSalePrice: maxPrice,
-        minSalePrice: autoMin,
+        maxSalePrice,
+        minSalePrice,
         totalStock: row.total_stock,
         lowStockLimit: row.low_stock_limit,
         active: row.active,
@@ -449,26 +496,25 @@ router.get('/', requireAuth, async (req, res: Response) => {
 router.get('/:id', requireAuth, async (req, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const result = await pgClient.query(
-      `SELECT p.*, b.name as brand_name, c.name as category_name
-       FROM products p
-       LEFT JOIN brands b ON p.brand_id = b.id
-       LEFT JOIN categories c ON p.category_id = c.id
-       WHERE p.id = $1`,
-      [id]
-    );
+    const [result, settings] = await Promise.all([
+      pgClient.query(
+        `SELECT p.*, COALESCE(p.cost_price, 0) as cost_price, b.name as brand_name, c.name as category_name
+         FROM products p
+         LEFT JOIN brands b ON p.brand_id = b.id
+         LEFT JOIN categories c ON p.category_id = c.id
+         WHERE p.id = $1`,
+        [id]
+      ),
+      getCompanyPricingSettings(),
+    ]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Product not found.' });
     }
 
     const row: any = result.rows[0];
-    const minMargin = await getMinProfitMarginPercent();
-    const cost = parseFloat(row.purchase_price) || 0;
-    const maxPrice = parseFloat(row.max_sale_price || row.min_sale_price || 0);
-    const autoMin = cost > 0
-      ? Math.round(cost * (1 + minMargin / 100))
-      : parseFloat(row.min_sale_price || 0);
+    const cost = parseFloat(row.cost_price) || 0;
+    const { minSalePrice, maxSalePrice } = computeRealtimeSellingPrices(cost, settings);
 
     res.json({
       product: {
@@ -483,9 +529,10 @@ router.get('/:id', requireAuth, async (req, res: Response) => {
         barcode: row.barcode,
         primaryImageUrl: row.primary_image_url,
         description: row.description,
+        costPrice: cost,
         purchasePrice: cost,
-        maxSalePrice: maxPrice,
-        minSalePrice: autoMin,
+        maxSalePrice,
+        minSalePrice,
         totalStock: row.total_stock,
         lowStockLimit: row.low_stock_limit,
         active: row.active,
@@ -512,9 +559,8 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
       barcode,
       primaryImageUrl,
       description,
+      costPrice,
       purchasePrice,
-      maxSalePrice,
-      minSalePrice,
       totalStock = 0,
       initialStock,
       lowStockLimit,
@@ -526,37 +572,14 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
     const cleanArticle = article.trim().toUpperCase();
     const cleanName = (name && name.trim()) ? name.trim() : cleanArticle;
 
-    if (purchasePrice === undefined || purchasePrice === '' || Number(purchasePrice) < 0) {
-      return res.status(400).json({ error: 'Valid purchase price is required.' });
+    const rawCost = costPrice !== undefined && costPrice !== null && costPrice !== ''
+      ? costPrice
+      : purchasePrice;
+
+    if (rawCost === undefined || rawCost === '' || Number(rawCost) < 0) {
+      return res.status(400).json({ error: 'Valid cost price is required.' });
     }
-    
-    // Effective Maximum Sale Price (from maxSalePrice or fallback minSalePrice for backwards-compatibility)
-    const rawEffectiveMax = maxSalePrice !== undefined && maxSalePrice !== ''
-      ? Number(maxSalePrice)
-      : minSalePrice !== undefined && minSalePrice !== ''
-      ? Number(minSalePrice)
-      : -1;
-
-    if (rawEffectiveMax < 0 || isNaN(rawEffectiveMax)) {
-      return res.status(400).json({ error: 'Valid maximum sale price is required.' });
-    }
-
-    const minMarginPercent = await getMinProfitMarginPercent();
-    const maxMarginPercent = await getMaxProfitMarginPercent();
-    const purchaseCost = Math.round(Number(purchasePrice));
-
-    // Automatic Pricing & Smart Upward Rounding
-    const pricing = calculateAutomaticPricing({
-      costPrice: purchaseCost,
-      minProfitMargin: minMarginPercent,
-      maxProfitMargin: maxMarginPercent,
-    });
-
-    const autoMinPrice = purchaseCost > 0 ? pricing.minProfitPrice : smartRoundUp(rawEffectiveMax);
-    let effectiveMaxPrice = rawEffectiveMax > 0 ? smartRoundUp(rawEffectiveMax) : pricing.maxProfitPrice;
-    if (effectiveMaxPrice < autoMinPrice) {
-      effectiveMaxPrice = autoMinPrice;
-    }
+    const finalCostPrice = Math.round(Number(rawCost));
 
     // Lookup brand name for automatic brand prefix parsing
     let brandName = '';
@@ -655,14 +678,14 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
       }
     }
 
-    // ATOMIC TRANSACTION: Create product and initial stock movement
+    // ATOMIC TRANSACTION: Create product with single cost_price and initial stock movement
     await pgClient.query('BEGIN');
     try {
       const productRes = await pgClient.query<{ id: number }>(
         `INSERT INTO products (
           name, brand_id, category_id, sku, article, barcode, primary_image_url, 
-          description, purchase_price, min_sale_price, max_sale_price, total_stock, low_stock_limit, active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true)
+          description, cost_price, total_stock, low_stock_limit, active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
         RETURNING id`,
         [
           cleanName,
@@ -673,9 +696,7 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
           finalBarcode,
           primaryImageUrl || '',
           description || '',
-          purchaseCost,
-          autoMinPrice,
-          effectiveMaxPrice,
+          finalCostPrice,
           physicalStock,
           finalLowStockLimit,
         ]
@@ -734,9 +755,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
       barcode,
       primaryImageUrl,
       description,
+      costPrice,
       purchasePrice,
-      maxSalePrice,
-      minSalePrice,
       totalStock,
       lowStockLimit,
       active,
@@ -793,37 +813,20 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
     }
 
     const updatedStock = totalStock !== undefined ? parseInt(String(totalStock), 10) : current.total_stock;
-    const finalPurchasePrice = purchasePrice !== undefined && purchasePrice !== ''
-      ? Math.round(Number(purchasePrice))
-      : Math.round(Number(current.purchase_price));
+    const rawCost = costPrice !== undefined && costPrice !== null && costPrice !== ''
+      ? costPrice
+      : purchasePrice;
 
-    const rawEffectiveMax = maxSalePrice !== undefined && maxSalePrice !== ''
-      ? Math.round(Number(maxSalePrice))
-      : minSalePrice !== undefined && minSalePrice !== ''
-      ? Math.round(Number(minSalePrice))
-      : Math.round(Number(current.max_sale_price || current.min_sale_price));
-
-    const minMarginPercent = await getMinProfitMarginPercent();
-    const maxMarginPercent = await getMaxProfitMarginPercent();
-
-    const pricing = calculateAutomaticPricing({
-      costPrice: finalPurchasePrice,
-      minProfitMargin: minMarginPercent,
-      maxProfitMargin: maxMarginPercent,
-    });
-
-    const autoMinPrice = finalPurchasePrice > 0 ? pricing.minProfitPrice : smartRoundUp(rawEffectiveMax);
-    let effectiveMaxPrice = rawEffectiveMax > 0 ? smartRoundUp(rawEffectiveMax) : pricing.maxProfitPrice;
-    if (effectiveMaxPrice < autoMinPrice) {
-      effectiveMaxPrice = autoMinPrice;
-    }
+    const finalCostPrice = rawCost !== undefined && rawCost !== ''
+      ? Math.round(Number(rawCost))
+      : Math.round(Number(current.cost_price || current.purchase_price || 0));
 
     await pgClient.query(
       `UPDATE products SET 
         name = $1, brand_id = $2, category_id = $3, sku = $4, article = $5, barcode = $6,
-        primary_image_url = $7, description = $8, purchase_price = $9, min_sale_price = $10,
-        max_sale_price = $11, total_stock = $12, low_stock_limit = $13, active = $14, updated_at = NOW()
-      WHERE id = $15`,
+        primary_image_url = $7, description = $8, cost_price = $9, total_stock = $10,
+        low_stock_limit = $11, active = $12, updated_at = NOW()
+      WHERE id = $13`,
       [
         finalName,
         brandId !== undefined ? (brandId ? parseInt(brandId, 10) : null) : current.brand_id,
@@ -833,9 +836,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
         finalBarcode,
         primaryImageUrl !== undefined ? primaryImageUrl : current.primary_image_url,
         description !== undefined ? description : current.description,
-        finalPurchasePrice,
-        autoMinPrice,
-        effectiveMaxPrice,
+        finalCostPrice,
         updatedStock,
         lowStockLimit !== undefined ? parseInt(lowStockLimit, 10) : current.low_stock_limit,
         active !== undefined ? Boolean(active) : current.active,

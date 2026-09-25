@@ -113,7 +113,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   // Step 3: Pricing Specifications State (Decimal cleanup: .00 automatically stripped)
   const [purchasePrice, setPurchasePrice] = useState<number | ''>(
-    product?.purchasePrice !== undefined && product?.purchasePrice !== null && product?.purchasePrice !== ''
+    product?.costPrice !== undefined && product?.costPrice !== null && product?.costPrice !== ''
+      ? parseFloat(cleanStockPriceInput(product.costPrice))
+      : product?.cost_price !== undefined && product?.cost_price !== null && product?.cost_price !== ''
+      ? parseFloat(cleanStockPriceInput(product.cost_price))
+      : product?.purchasePrice !== undefined && product?.purchasePrice !== null && product?.purchasePrice !== ''
       ? parseFloat(cleanStockPriceInput(product.purchasePrice))
       : ''
   );

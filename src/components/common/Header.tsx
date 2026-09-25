@@ -33,6 +33,9 @@ import {
   Building2,
   RotateCcw,
   TrendingUp,
+  Copy,
+  Coins,
+  Loader2,
 } from 'lucide-react';
 import { UserAvatar } from './UserAvatar.tsx';
 import { ThemeDropdown } from './ThemeDropdown.tsx';
@@ -54,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onTabChange,
   currentUser,
-  companySettings: _companySettings,
+  companySettings,
   onLogout,
   onToggleMobileMenu,
   onOpenProfile,
@@ -66,15 +69,31 @@ export const Header: React.FC<HeaderProps> = ({
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<{
-    products: any[];
-    customers: any[];
-    screens: { id: string; label: string; shortcut?: string }[];
-  }>({ products: [], customers: [], screens: [] });
+  const [priceSearchResults, setPriceSearchResults] = useState<any[]>([]);
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
+  const [copiedNotification, setCopiedNotification] = useState<string | null>(null);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const currency = companySettings?.currency_symbol || companySettings?.currencySymbol || 'Rs.';
+
+  const formatPrice = (val: number | string | undefined | null) => {
+    const n = Number(val);
+    if (isNaN(n)) return `${currency} 0`;
+    return `${currency} ${n.toLocaleString()}`;
+  };
+
+  const copyPriceValue = (e: React.MouseEvent, priceValue: number | string | undefined, label: string) => {
+    e.stopPropagation();
+    try {
+      const textToCopy = String(priceValue ?? 0);
+      navigator.clipboard.writeText(textToCopy);
+      setCopiedNotification(label);
+      setTimeout(() => setCopiedNotification(null), 1800);
+    } catch {}
+  };
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -93,67 +112,30 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Quick navigation screens list
-  const userRole = (currentUser?.role || '').toLowerCase();
-  const isCashier = userRole === 'cashier';
-
-  const availableScreens = [
-    { id: 'pos', label: 'POS Terminal', icon: ShoppingCart, shortcut: 'F1' },
-    { id: 'inventory', label: 'Shoe Catalog', icon: Boxes, shortcut: 'F2' },
-    { id: 'brands', label: 'Brands', icon: Tag },
-    { id: 'categories', label: 'Categories', icon: Layers },
-    { id: 'ledger', label: 'Stock Ledger', icon: BookOpen },
-    { id: 'purchases', label: 'Purchases', icon: Truck, shortcut: 'F3' },
-    { id: 'suppliers', label: 'Suppliers', icon: Building2 },
-    { id: 'returns', label: 'Returns', icon: RotateCcw, shortcut: 'F4' },
-    { id: 'customers', label: 'Customers', icon: Users, shortcut: 'F5' },
-    { id: 'reports', label: 'Reports', icon: TrendingUp, shortcut: 'F6' },
-    { id: 'settings', label: 'Settings', icon: Settings, shortcut: 'F7' },
-  ].filter((s) => {
-    if (isCashier && (s.id === 'purchases' || s.id === 'brands' || s.id === 'categories' || s.id === 'settings')) {
-      return false;
-    }
-    return true;
-  });
-
-  // Handle global search input
+  // Quick price search - does NOT change routes, directly retrieves price suggestions
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setSearchResults({ products: [], customers: [], screens: [] });
+      setPriceSearchResults([]);
+      setIsLoadingSearch(false);
       return;
     }
 
-    const q = searchQuery.toLowerCase().trim();
-    const matchedScreens = availableScreens.filter((s) =>
-      s.label.toLowerCase().includes(q)
-    );
+    const q = searchQuery.trim();
+    setIsLoadingSearch(true);
 
-    // Debounced search query for products and customers
     const timer = setTimeout(async () => {
       try {
-        const [prodRes, custRes] = await Promise.all([
-          api.products.list({ search: q }).catch(() => ({ products: [] })),
-          api.customers.list(q).catch(() => ({ customers: [] })),
-        ]);
-
-        setSearchResults({
-          products: (prodRes?.products || []).slice(0, 4),
-          customers: (custRes?.customers || []).slice(0, 3),
-          screens: matchedScreens.slice(0, 4),
-        });
+        const prodRes = await api.products.list({ search: q }).catch(() => ({ products: [] }));
+        setPriceSearchResults(prodRes?.products || []);
       } catch {
-        setSearchResults({ products: [], customers: [], screens: matchedScreens });
+        setPriceSearchResults([]);
+      } finally {
+        setIsLoadingSearch(false);
       }
-    }, 200);
+    }, 180);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
-  const handleSelectScreen = (tabId: string) => {
-    onTabChange?.(tabId);
-    setIsSearching(false);
-    setSearchQuery('');
-  };
 
   // Real-time system notifications
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -260,8 +242,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="px-4 rounded-b-lg border border-indigo-500/20 bg-white/95 dark:bg-white/10 backdrop-blur-lg shadow-lg transition-colors duration-500 sticky top-0 z-30 select-none text-slate-800 dark:text-slate-100 flex items-center justify-between gap-2.5 sm:gap-4 min-h-[3.6rem] py-1.5 no-print">
-      {/* LEFT: Mobile Menu Toggle Button (< lg) */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* LEFT: Mobile Menu Toggle Button & Global Search Bar close to hamburger menu */}
+      <div className="flex items-center gap-2 sm:gap-2.5 pl-0.5 sm:pl-1 min-w-0">
         {/* Mobile Menu Toggle Button (< lg) */}
         <button
           type="button"
@@ -271,14 +253,11 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Menu className="w-4 h-4 stroke-[2.2]" />
         </button>
-      </div>
 
-      {/* RIGHT: Notifications, Search, Theme Dropdown, and User Profile */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pl-1">
-        {/* Global Search Bar */}
-        <div ref={searchRef} className="relative w-28 sm:w-40 md:w-48 lg:w-56 min-w-0">
+        {/* Quick Price Retrieval Search Bar */}
+        <div ref={searchRef} className="relative w-44 sm:w-56 md:w-68 lg:w-80 min-w-0">
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+            <Coins className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 absolute left-2.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -292,8 +271,8 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowUserDropdown(false);
                 setShowThemeDropdown(false);
               }}
-              placeholder="Search..."
-              className="h-8 sm:h-8.5 w-full bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-indigo-500/20 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition-all"
+              placeholder="Quick price check (Article, SKU)..."
+              className="h-8 sm:h-8.5 w-full bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-indigo-500/20 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 pl-8 pr-7 py-1 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all font-medium"
             />
             {searchQuery && (
               <button
@@ -303,13 +282,14 @@ export const Header: React.FC<HeaderProps> = ({
                   setIsSearching(false);
                 }}
                 className="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Instant Global Search Results Dropdown */}
+          {/* Quick Price Retrieval Suggestions Dropdown (No routing, instant price cards) */}
           <AnimatePresence>
             {isSearching && searchQuery.trim().length > 0 && (
               <motion.div
@@ -317,94 +297,139 @@ export const Header: React.FC<HeaderProps> = ({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96, y: -8 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ transformOrigin: 'top right' }}
-                className="absolute right-0 w-72 sm:w-80 top-full mt-2 bg-white dark:bg-[#0E1628] border border-slate-200 dark:border-[#1A263D] rounded-xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto space-y-1"
+                style={{ transformOrigin: 'top left' }}
+                className="absolute left-0 w-84 sm:w-96 md:w-[440px] max-w-[calc(100vw-2rem)] top-full mt-2 bg-white dark:bg-[#0D1322] border border-slate-200 dark:border-indigo-500/30 rounded-2xl shadow-2xl p-3 z-50 max-h-[30rem] overflow-y-auto space-y-2 backdrop-blur-md"
               >
-                {/* Screen Jumps */}
-                {searchResults.screens.length > 0 && (
-                  <div className="mb-1">
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
-                      Navigation
-                    </div>
-                    {searchResults.screens.map((screen) => (
-                      <button
-                        key={screen.id}
-                        type="button"
-                        onClick={() => handleSelectScreen(screen.id)}
-                        className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
-                      >
-                        <span>{screen.label}</span>
-                        {screen.shortcut && (
-                          <kbd className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#162238] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#1E2D4A]">
-                            {screen.shortcut}
-                          </kbd>
-                        )}
-                      </button>
-                    ))}
+                {/* Header title */}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+                    <Coins className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <span>Quick Price Retrieval</span>
+                  </div>
+                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/60 px-2 py-0.5 rounded-full">
+                    No route change
+                  </span>
+                </div>
+
+                {copiedNotification && (
+                  <div className="px-2.5 py-1 text-center text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-200 dark:border-emerald-800/50">
+                    ✓ {copiedNotification} copied to clipboard
                   </div>
                 )}
 
-                {/* Products Found */}
-                {searchResults.products.length > 0 && (
-                  <div className="mb-1">
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
-                      Products
-                    </div>
-                    {searchResults.products.map((prod) => (
-                      <button
+                {/* Loading state */}
+                {isLoadingSearch && (
+                  <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                    <span>Searching price details...</span>
+                  </div>
+                )}
+
+                {/* Suggestions list */}
+                {!isLoadingSearch && priceSearchResults.length > 0 && (
+                  <div className="space-y-2">
+                    {priceSearchResults.slice(0, 10).map((prod) => (
+                      <div
                         key={prod.id}
-                        type="button"
-                        onClick={() => handleSelectScreen('inventory')}
-                        className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
+                        className="p-2.5 rounded-xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/70 dark:bg-[#121A2F] hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-all select-text cursor-default"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center gap-2 truncate">
-                          <Boxes className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">{prod.article || prod.name}</span>
+                        {/* Title & Metadata */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                {prod.article || prod.name}
+                              </span>
+                              {prod.brandName && prod.brandName !== 'Unbranded' && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/50">
+                                  {prod.brandName}
+                                </span>
+                              )}
+                              {prod.categoryName && prod.categoryName !== 'Uncategorized' && (
+                                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                  • {prod.categoryName}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
+                              <span>SKU: {prod.sku || '—'}</span>
+                              {prod.barcode && <span>• Barcode: {prod.barcode}</span>}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              (prod.totalStock ?? 0) > 0 
+                                ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40'
+                                : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40'
+                            }`}>
+                              {prod.totalStock ?? 0} in stock
+                            </span>
+                          </div>
                         </div>
-                        <span className="font-mono text-[11px] text-slate-400 shrink-0">
-                          {prod.sku}
-                        </span>
-                      </button>
+
+                        {/* 3-Column Pricing Grid: Cost Price, Minimum Sale Price, Maximum Sale Price */}
+                        <div className="grid grid-cols-3 gap-1.5 mt-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-800/80">
+                          {/* Cost Price */}
+                          <div className="p-1.5 rounded-lg bg-white dark:bg-[#090D18] border border-slate-200 dark:border-slate-800 text-center">
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                              Cost Price
+                            </div>
+                            <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
+                              {formatPrice(prod.costPrice)}
+                            </div>
+                          </div>
+
+                          {/* Min Sale Price (Floor) */}
+                          <div
+                            onClick={(e) => copyPriceValue(e, prod.minSalePrice, `Min price (${formatPrice(prod.minSalePrice)})`)}
+                            className="p-1.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-700/50 text-center cursor-pointer hover:bg-amber-100/80 dark:hover:bg-amber-900/40 transition group/min"
+                            title="Click to copy Minimum Sale Price"
+                          >
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1">
+                              <span>Min Sale</span>
+                              <Copy className="w-2.5 h-2.5 opacity-60 group-hover/min:opacity-100" />
+                            </div>
+                            <div className="text-xs font-mono font-extrabold text-amber-800 dark:text-amber-200 mt-0.5">
+                              {formatPrice(prod.minSalePrice)}
+                            </div>
+                          </div>
+
+                          {/* Max Sale Price (Retail) */}
+                          <div
+                            onClick={(e) => copyPriceValue(e, prod.maxSalePrice, `Max price (${formatPrice(prod.maxSalePrice)})`)}
+                            className="p-1.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-700/50 text-center cursor-pointer hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40 transition group/max"
+                            title="Click to copy Maximum Sale Price"
+                          >
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1">
+                              <span>Max Sale</span>
+                              <Copy className="w-2.5 h-2.5 opacity-60 group-hover/max:opacity-100" />
+                            </div>
+                            <div className="text-xs font-mono font-extrabold text-emerald-800 dark:text-emerald-200 mt-0.5">
+                              {formatPrice(prod.maxSalePrice)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
 
-                {/* Customers Found */}
-                {searchResults.customers.length > 0 && (
-                  <div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
-                      Customers
-                    </div>
-                    {searchResults.customers.map((cust) => (
-                      <button
-                        key={cust.id}
-                        type="button"
-                        onClick={() => handleSelectScreen('customers')}
-                        className="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#131F38] hover:text-[#3B82F6] transition cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">{cust.name}</span>
-                        </div>
-                        <span className="text-[11px] text-slate-400 shrink-0">
-                          {cust.phone}
-                        </span>
-                      </button>
-                    ))}
+                {/* Empty State */}
+                {!isLoadingSearch && priceSearchResults.length === 0 && (
+                  <div className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+                    No footwear products found for "{searchQuery}"
                   </div>
                 )}
-
-                {searchResults.screens.length === 0 &&
-                  searchResults.products.length === 0 &&
-                  searchResults.customers.length === 0 && (
-                    <div className="p-3 text-center text-xs text-slate-400">
-                      No results for "{searchQuery}"
-                    </div>
-                  )}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+      </div>
+
+      {/* RIGHT: Notifications, Theme Dropdown, and User Profile */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pl-1">
 
         {/* Real-time Notifications Menu */}
         <div ref={notifRef} className="relative">
