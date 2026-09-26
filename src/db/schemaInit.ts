@@ -115,8 +115,52 @@ export async function ensureDatabaseSchema(): Promise<void> {
       END IF;
     END $$;
     ALTER TABLE products DROP COLUMN IF EXISTS purchase_price;
-    ALTER TABLE products DROP COLUMN IF EXISTS min_sale_price;
-    ALTER TABLE products DROP COLUMN IF EXISTS max_sale_price;
+
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS margin_type TEXT DEFAULT 'FIXED';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_min_margin NUMERIC(5, 2);
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_max_margin NUMERIC(5, 2);
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS sale_price INTEGER;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS min_sale_price INTEGER;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS max_sale_price INTEGER;
+
+    -- Data Migration for existing products: populate integer price fields if not set
+    DO $$
+    DECLARE
+      v_pricing_mode TEXT;
+      v_fixed_margin NUMERIC;
+      v_min_margin NUMERIC;
+      v_max_margin NUMERIC;
+    BEGIN
+      SELECT 
+        COALESCE(pricing_mode, 'FIXED'),
+        COALESCE(fixed_profit_margin, 30.00),
+        COALESCE(min_profit_margin, 15.00),
+        COALESCE(max_profit_margin, 30.00)
+      INTO v_pricing_mode, v_fixed_margin, v_min_margin, v_max_margin
+      FROM company_settings
+      LIMIT 1;
+
+      IF v_fixed_margin IS NULL THEN v_fixed_margin := 30.00; END IF;
+      IF v_min_margin IS NULL THEN v_min_margin := 15.00; END IF;
+      IF v_max_margin IS NULL THEN v_max_margin := 30.00; END IF;
+
+      UPDATE products
+      SET 
+        margin_type = COALESCE(margin_type, 'FIXED'),
+        sale_price = CASE 
+          WHEN sale_price IS NOT NULL AND sale_price > 0 THEN sale_price
+          ELSE ROUND(cost_price * (1 + v_fixed_margin / 100))::INTEGER
+        END,
+        min_sale_price = CASE 
+          WHEN min_sale_price IS NOT NULL AND min_sale_price > 0 THEN min_sale_price
+          ELSE ROUND(cost_price * (1 + v_min_margin / 100))::INTEGER
+        END,
+        max_sale_price = CASE 
+          WHEN max_sale_price IS NOT NULL AND max_sale_price > 0 THEN max_sale_price
+          ELSE ROUND(cost_price * (1 + v_max_margin / 100))::INTEGER
+        END
+      WHERE sale_price IS NULL OR min_sale_price IS NULL OR max_sale_price IS NULL;
+    END $$;
 
     CREATE INDEX IF NOT EXISTS products_barcode_idx ON products(barcode);
     CREATE INDEX IF NOT EXISTS products_sku_idx ON products(sku);

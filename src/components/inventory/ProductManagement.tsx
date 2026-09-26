@@ -425,7 +425,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                 <th className="py-3.5 px-4">Article &amp; Identifiers</th>
                 <th className="py-3.5 px-3">Brand &amp; Category</th>
                 <th className="py-3.5 px-4">Barcode (Click to Print)</th>
-                <th className="py-3.5 px-3 text-right" title="Base procurement cost price (Selling prices auto-calculated in real time)">Cost Price</th>
+                <th className="py-3.5 px-3 text-right" title="Product cost price and saved selling price according to pricing policy">Pricing &amp; Cost</th>
                 <th className="py-3.5 px-3 text-center">Total Stock</th>
                 <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
@@ -555,27 +555,40 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                         </div>
                       </td>
 
-                      {/* Single Cost Price Column with Real-time Calculated Selling Price */}
+                      {/* Cost Price & Selling Price with Policy Badge */}
                       <td className="py-3.5 px-3 text-right">
                         <div className="font-mono font-bold text-slate-900 dark:text-white text-xs">
                           {currencySymbol} {formatStockPrice(p.costPrice ?? p.cost_price)}
+                          <span className="text-[10px] text-slate-400 font-normal ml-1">cost</span>
                         </div>
                         {(() => {
+                          const policy = String(p.marginType || p.margin_type || (p.salePrice ? 'FIXED' : (companySettings?.pricing_mode || 'FIXED'))).toUpperCase();
+                          const isFixed = policy === 'FIXED';
                           const retailPrice = getProductRetailPrice(p, companySettings);
                           const minFloor = getProductMinFloorPrice(p, companySettings);
-                          return isFixedPolicy ? (
-                            <div
-                              className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-semibold mt-0.5"
-                              title="Real-time Fixed Tag & Selling Price"
-                            >
-                              Tag: {currencySymbol} {formatStockPrice(retailPrice)}
+
+                          return isFixed ? (
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 uppercase">
+                                Fixed
+                              </span>
+                              <span className="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400">
+                                {currencySymbol} {formatStockPrice(retailPrice)}
+                              </span>
                             </div>
                           ) : (
-                            <div
-                              className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5"
-                              title="Real-time Tag (MRP) & Min Floor"
-                            >
-                              Tag: {currencySymbol} {formatStockPrice(retailPrice)} · Min: {currencySymbol} {formatStockPrice(minFloor)}
+                            <div className="flex flex-col items-end mt-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 uppercase">
+                                  Negotiable
+                                </span>
+                                <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                  {currencySymbol} {formatStockPrice(retailPrice)}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-semibold">
+                                Floor: {currencySymbol} {formatStockPrice(minFloor)}
+                              </span>
                             </div>
                           );
                         })()}

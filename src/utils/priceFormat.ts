@@ -58,20 +58,45 @@ export function formatCurrency(
 
 /**
  * Returns the effective retail selling price (M.R.P. / Maximum Sale Price) for a product.
- * Calculated in real-time dynamically from costPrice and company pricing policy.
- * This is the exact price that appears on shoe box stickers and barcode stickers,
- * and is the initial starting unit price in the POS cart when scanned or added.
- *
- * Precedence:
- * 1. Real-time Calculation from Cost Price + Company Settings:
- *    - FIXED Mode: Tag Price = Cost Price + Fixed Profit Margin
- *    - NEGOTIABLE Mode: Tag Price = Cost Price + Maximum Profit Margin
- * 2. Fallbacks if cost is 0 or settings absent:
- *    - maxSalePrice / minSalePrice / basePrice
+ * In the new pricing architecture:
+ * 1. For Fixed Pricing: uses product's saved sale_price directly.
+ * 2. For Negotiable Pricing: uses product's saved max_sale_price directly.
+ * 3. Fallback: only if product has no saved price fields, calculates initial default from cost + margin settings.
  */
 export function getProductRetailPrice(product: any, companySettings?: any): number {
   if (!product) return 0;
 
+  const rawMarginType = String(product.marginType || product.margin_type || '').toUpperCase();
+  const isExplicitFixed = rawMarginType === 'FIXED';
+  const isExplicitNegotiable = rawMarginType === 'NEGOTIABLE';
+
+  // 1. Direct saved values based on policy
+  if (isExplicitFixed) {
+    const rawSale = product.salePrice ?? product.sale_price;
+    const sale = Number(rawSale);
+    if (!isNaN(sale) && sale > 0) return Math.round(sale);
+  } else if (isExplicitNegotiable) {
+    const rawMax = product.maxSalePrice ?? product.max_sale_price;
+    const max = Number(rawMax);
+    if (!isNaN(max) && max > 0) return Math.round(max);
+  }
+
+  // 2. Check saved fields regardless of explicit marginType flag
+  const directSale = Number(product.salePrice ?? product.sale_price);
+  const directMax = Number(product.maxSalePrice ?? product.max_sale_price);
+  const directMin = Number(product.minSalePrice ?? product.min_sale_price);
+
+  if (!isNaN(directMax) && directMax > 0) {
+    return Math.round(directMax);
+  }
+  if (!isNaN(directSale) && directSale > 0) {
+    return Math.round(directSale);
+  }
+  if (!isNaN(directMin) && directMin > 0) {
+    return Math.round(directMin);
+  }
+
+  // 3. Fallback: Default/Automatic calculation from Cost Price + Company Settings only if no saved price exists
   const cost = Number(
     product.costPrice !== undefined && product.costPrice !== null
       ? product.costPrice
@@ -81,7 +106,7 @@ export function getProductRetailPrice(product: any, companySettings?: any): numb
   );
 
   if (cost > 0) {
-    const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+    const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'FIXED').toUpperCase();
     if (rawMode === 'FIXED') {
       const fixedMargin =
         typeof companySettings?.fixed_profit_margin === 'number'
@@ -91,7 +116,6 @@ export function getProductRetailPrice(product: any, companySettings?: any): numb
           : parseFloat(companySettings?.fixed_profit_margin || companySettings?.fixedProfitMargin || '30') || 30;
       return Math.round(cost * (1 + fixedMargin / 100));
     } else {
-      // NEGOTIABLE: Tag price = Cost + Maximum Profit Margin
       const maxMargin =
         typeof companySettings?.max_profit_margin === 'number'
           ? companySettings.max_profit_margin
@@ -102,29 +126,47 @@ export function getProductRetailPrice(product: any, companySettings?: any): numb
     }
   }
 
-  const rawMax = product.maxSalePrice ?? product.max_sale_price;
-  const max = Number(rawMax);
-  if (!isNaN(max) && max > 0) return Math.round(max);
-
-  const rawMin = product.minSalePrice ?? product.min_sale_price;
-  const min = Number(rawMin);
-  if (!isNaN(min) && min > 0) return Math.round(min);
-
-  const rawBase = product.basePrice ?? product.salePrice ?? product.sale_price;
-  const base = Number(rawBase);
-  if (!isNaN(base) && base > 0) return Math.round(base);
-
   return 0;
 }
 
 /**
  * Returns the minimum floor selling price for a product.
- * In Fixed mode: equal to the fixed tag price.
- * In Negotiable mode: Cost Price + Minimum Profit Margin (lowest price allowed at POS).
+ * In the new pricing architecture:
+ * 1. For Fixed Pricing: equal to the saved sale_price.
+ * 2. For Negotiable Pricing: uses product's saved min_sale_price directly.
+ * 3. Fallback: calculates from cost + min margin settings only if no saved price exists.
  */
 export function getProductMinFloorPrice(product: any, companySettings?: any): number {
   if (!product) return 0;
 
+  const rawMarginType = String(product.marginType || product.margin_type || '').toUpperCase();
+  const isExplicitFixed = rawMarginType === 'FIXED';
+  const isExplicitNegotiable = rawMarginType === 'NEGOTIABLE';
+
+  if (isExplicitFixed) {
+    const rawSale = product.salePrice ?? product.sale_price;
+    const sale = Number(rawSale);
+    if (!isNaN(sale) && sale > 0) return Math.round(sale);
+  } else if (isExplicitNegotiable) {
+    const rawMin = product.minSalePrice ?? product.min_sale_price;
+    const min = Number(rawMin);
+    if (!isNaN(min) && min > 0) return Math.round(min);
+  }
+
+  const directMin = Number(product.minSalePrice ?? product.min_sale_price);
+  if (!isNaN(directMin) && directMin > 0) {
+    return Math.round(directMin);
+  }
+  const directSale = Number(product.salePrice ?? product.sale_price);
+  if (!isNaN(directSale) && directSale > 0) {
+    return Math.round(directSale);
+  }
+  const directMax = Number(product.maxSalePrice ?? product.max_sale_price);
+  if (!isNaN(directMax) && directMax > 0) {
+    return Math.round(directMax);
+  }
+
+  // Fallback only if no saved price exists
   const cost = Number(
     product.costPrice !== undefined && product.costPrice !== null
       ? product.costPrice
@@ -134,7 +176,7 @@ export function getProductMinFloorPrice(product: any, companySettings?: any): nu
   );
 
   if (cost > 0) {
-    const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+    const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'FIXED').toUpperCase();
     if (rawMode === 'FIXED') {
       const fixedMargin =
         typeof companySettings?.fixed_profit_margin === 'number'
@@ -144,7 +186,6 @@ export function getProductMinFloorPrice(product: any, companySettings?: any): nu
           : parseFloat(companySettings?.fixed_profit_margin || companySettings?.fixedProfitMargin || '30') || 30;
       return Math.round(cost * (1 + fixedMargin / 100));
     } else {
-      // NEGOTIABLE: Minimum Floor = Cost + Minimum Profit Margin
       const minMargin =
         typeof companySettings?.min_profit_margin === 'number'
           ? companySettings.min_profit_margin
@@ -155,15 +196,11 @@ export function getProductMinFloorPrice(product: any, companySettings?: any): nu
     }
   }
 
-  const rawMin = product.minSalePrice ?? product.min_sale_price;
-  const min = Number(rawMin);
-  if (!isNaN(min) && min > 0) return Math.round(min);
-
   return 0;
 }
 
 /**
- * Returns a comprehensive real-time pricing breakdown for a product.
+ * Returns a comprehensive pricing breakdown for a product based on its saved prices.
  */
 export function getProductRealtimePricing(product: any, companySettings?: any) {
   const cost = Number(
@@ -175,7 +212,7 @@ export function getProductRealtimePricing(product: any, companySettings?: any) {
   );
   const retailPrice = getProductRetailPrice(product, companySettings);
   const minFloorPrice = getProductMinFloorPrice(product, companySettings);
-  const rawMode = String(companySettings?.pricing_mode || companySettings?.pricingMode || 'NEGOTIABLE').toUpperCase();
+  const rawMode = String(product?.marginType || product?.margin_type || companySettings?.pricing_mode || companySettings?.pricingMode || 'FIXED').toUpperCase();
   const isFixed = rawMode === 'FIXED';
 
   return {

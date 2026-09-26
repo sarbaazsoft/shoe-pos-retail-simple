@@ -50,9 +50,7 @@ export interface CalculatedProductPricing {
  */
 export function roundToCurrency(val: number): number {
   if (typeof val !== 'number' || isNaN(val) || val <= 0) return 0;
-  // Round to nearest whole number if fractional part is negligible, else 2 decimals
-  const rounded = Math.round(val * 100) / 100;
-  return Number.isInteger(rounded) ? rounded : Number(rounded.toFixed(2));
+  return Math.round(val);
 }
 
 /**

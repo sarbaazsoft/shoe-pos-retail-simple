@@ -102,8 +102,16 @@ router.post('/checkout', requireAuth, async (req: AuthenticatedRequest, res: Res
   const fixedMarginPercent = parseFloat(settingsRes.rows[0]?.fixed_profit_margin ?? '30') || 30;
 
   for (const item of items) {
-    const prodRes = await pgClient.query<{ cost_price: string; name: string; article: string }>(
-      'SELECT COALESCE(cost_price, 0) as cost_price, name, article FROM products WHERE id = $1',
+    const prodRes = await pgClient.query<{
+      cost_price: string;
+      name: string;
+      article: string;
+      sale_price: number | null;
+      min_sale_price: number | null;
+      max_sale_price: number | null;
+      margin_type: string | null;
+    }>(
+      'SELECT COALESCE(cost_price, 0) as cost_price, name, article, sale_price, min_sale_price, max_sale_price, margin_type FROM products WHERE id = $1',
       [item.productId]
     );
 
@@ -111,15 +119,26 @@ router.post('/checkout', requireAuth, async (req: AuthenticatedRequest, res: Res
       return res.status(404).json({ error: `Product ID ${item.productId} not found.` });
     }
 
-    const costPrice = parseFloat(prodRes.rows[0].cost_price || '0');
-    // Minimum price is automatically set in real-time to Cost Price + Minimum Profit Margin
-    const minSalePrice = costPrice > 0
-      ? (isFixedMode ? Math.round(costPrice * (1 + fixedMarginPercent / 100)) : Math.round(costPrice * (1 + minMarginPercent / 100)))
-      : 0;
-    const effectiveUnitPrice = parseFloat(item.unitPrice);
-    const prodIdentifier = prodRes.rows[0].article || prodRes.rows[0].name;
+    const prod = prodRes.rows[0];
+    const costPrice = Math.round(parseFloat(prod.cost_price || '0'));
+    const prodIdentifier = prod.article || prod.name;
+    const effectiveUnitPrice = Math.round(parseFloat(item.unitPrice));
+    const productPolicy = String(prod.margin_type || (prod.sale_price ? 'FIXED' : 'NEGOTIABLE')).toUpperCase();
+    const isFixedProduct = productPolicy === 'FIXED';
 
-    if (effectiveUnitPrice < minSalePrice) {
+    // Determine min allowed selling price from saved product prices
+    let minAllowedPrice = 0;
+    if (isFixedProduct) {
+      minAllowedPrice = prod.sale_price !== null && prod.sale_price !== undefined
+        ? Math.round(Number(prod.sale_price))
+        : (costPrice > 0 ? Math.round(costPrice * (1 + fixedMarginPercent / 100)) : 0);
+    } else {
+      minAllowedPrice = prod.min_sale_price !== null && prod.min_sale_price !== undefined
+        ? Math.round(Number(prod.min_sale_price))
+        : (costPrice > 0 ? Math.round(costPrice * (1 + minMarginPercent / 100)) : 0);
+    }
+
+    if (effectiveUnitPrice < minAllowedPrice) {
       // Sale is below minimum price. Requires Admin role or Admin credentials override.
       if (user.role === 'ADMIN') {
         verifiedOverrideAdminId = user.id;
@@ -135,24 +154,24 @@ router.post('/checkout', requireAuth, async (req: AuthenticatedRequest, res: Res
           adminCheck.rows[0].status !== 'APPROVED'
         ) {
           return res.status(403).json({
-            error: `Selling "${prodIdentifier}" below minimum price (Rs. ${Math.round(minSalePrice)}) is rejected. Invalid Admin credentials.`,
+            error: `Selling "${prodIdentifier}" below minimum price (Rs. ${minAllowedPrice}) is rejected. Invalid Admin credentials.`,
           });
         }
         const isPassValid = await bcrypt.compare(adminOverridePassword, adminCheck.rows[0].password_hash);
         if (!isPassValid) {
           return res.status(403).json({
-            error: `Selling "${prodIdentifier}" below minimum price (Rs. ${Math.round(minSalePrice)}) is rejected. Incorrect Admin password.`,
+            error: `Selling "${prodIdentifier}" below minimum price (Rs. ${minAllowedPrice}) is rejected. Incorrect Admin password.`,
           });
         }
         verifiedOverrideAdminId = adminCheck.rows[0].id;
       } else {
         return res.status(400).json({
-          error: `Minimum Price Violation: "${prodIdentifier}" cannot be sold below Rs. ${Math.round(minSalePrice)} (Cost Rs. ${Math.round(costPrice)} + ${minMarginPercent}% Min Margin) without Admin authorization.`,
+          error: `Minimum Price Violation: "${prodIdentifier}" cannot be sold below saved minimum price of Rs. ${minAllowedPrice} without Admin authorization.`,
           requiresAdminOverride: true,
           productId: item.productId,
           productName: prodIdentifier,
-          minSalePrice: Math.round(minSalePrice),
-          attemptedPrice: Math.round(effectiveUnitPrice),
+          minSalePrice: minAllowedPrice,
+          attemptedPrice: effectiveUnitPrice,
         });
       }
     }
