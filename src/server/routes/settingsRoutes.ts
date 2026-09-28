@@ -20,7 +20,7 @@ async function ensureSettingsPricingColumns() {
     await pgClient.query("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS pricing_policy_locked BOOLEAN NOT NULL DEFAULT false");
     await pgClient.query("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS show_receipt_logo BOOLEAN NOT NULL DEFAULT false");
     await pgClient.query("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS receipt_logo TEXT DEFAULT ''");
-    await pgClient.query("UPDATE company_settings SET pricing_policy_locked = true WHERE is_installed = true");
+    await pgClient.query("UPDATE company_settings SET pricing_policy_locked = false");
     settingsColumnsVerified = true;
   } catch (err) {
     console.warn('Could not ensure settings pricing columns:', err);
@@ -29,7 +29,7 @@ async function ensureSettingsPricingColumns() {
 
 function formatSettingsResponse(s: any) {
   const mode = String(s.pricing_mode || 'FIXED').toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED';
-  const locked = Boolean(s.pricing_policy_locked || s.is_installed);
+  const locked = false;
   const receiptLogo = s.receipt_logo || s.logo || '';
   const showReceiptLogo = Boolean(s.show_receipt_logo);
   return {
@@ -159,7 +159,7 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
     const invoiceFooter = req.body.invoice_footer || req.body.invoiceFooter || '';
     const lowStockLimit = parseInt(req.body.low_stock_limit || req.body.lowStockLimit, 10) || 5;
 
-    // Retrieve current settings to enforce the Lock mechanism on Pricing Policy once initialized
+    // Retrieve current settings and determine new pricing policy (unlocked, changeable anytime)
     const currentSettingsRes = await pgClient.query<{
       is_installed: boolean;
       pricing_policy_locked: boolean;
@@ -167,15 +167,11 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
     }>('SELECT is_installed, pricing_policy_locked, pricing_mode FROM company_settings LIMIT 1');
 
     const currentRow = currentSettingsRes.rows[0];
-    const isPolicyLocked = Boolean(currentRow?.is_installed || currentRow?.pricing_policy_locked);
     let pricingMode = String(currentRow?.pricing_mode || 'FIXED').toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED';
 
-    // Only allow setting pricingMode if the store is NOT yet initialized/locked
-    if (!isPolicyLocked) {
-      const requestedMode = String(
-        req.body.pricingPolicy || req.body.pricing_policy || req.body.pricing_mode || req.body.pricingMode || pricingMode
-      ).toUpperCase();
-      pricingMode = requestedMode === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED';
+    const requestedMode = req.body.pricingPolicy || req.body.pricing_policy || req.body.pricing_mode || req.body.pricingMode;
+    if (requestedMode) {
+      pricingMode = String(requestedMode).toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED';
     }
 
     const currencyCode = req.body.currency || 'PKR';
@@ -221,7 +217,7 @@ router.put('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res
          currency_name = $9, currency = $10, currency_symbol = $11,
          barcode_prefix = $12, purchase_prefix = $13, invoice_prefix = $14,
          invoice_footer = $15, low_stock_limit = $16,
-         pricing_mode = $17, show_receipt_logo = $18, receipt_logo = $19, updated_at = NOW()
+         pricing_mode = $17, pricing_policy_locked = false, show_receipt_logo = $18, receipt_logo = $19, updated_at = NOW()
        WHERE id = (SELECT id FROM company_settings LIMIT 1)
        RETURNING *`,
       [

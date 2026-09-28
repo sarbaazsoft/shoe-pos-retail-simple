@@ -68,8 +68,8 @@ export async function ensureDatabaseSchema(): Promise<void> {
     ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS show_receipt_logo BOOLEAN DEFAULT false;
     ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS receipt_logo TEXT DEFAULT '';
 
-    -- Lock pricing_policy if the store is already installed
-    UPDATE company_settings SET pricing_policy_locked = true WHERE is_installed = true;
+    -- Ensure pricing policy is unlocked so store owner can change it anytime in Settings
+    UPDATE company_settings SET pricing_policy_locked = false;
 
     -- Permanently remove redundant margin calculation columns from company_settings
     ALTER TABLE company_settings DROP COLUMN IF EXISTS fixed_profit_margin;
@@ -154,6 +154,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS selling_price INTEGER DEFAULT 0;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS min_price INTEGER DEFAULT 0;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS max_price INTEGER DEFAULT 0;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS pricing_policy TEXT DEFAULT NULL;
 
     -- Data Migration: Migrate legacy sale_price, min_sale_price, max_sale_price into selling_price, min_price, max_price
     DO $$

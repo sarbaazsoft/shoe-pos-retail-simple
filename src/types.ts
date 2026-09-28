@@ -121,6 +121,9 @@ export interface Product {
   min_price?: number;
   maxPrice: number;
   max_price?: number;
+  pricingPolicy?: PricingPolicy;
+  pricing_policy?: PricingPolicy;
+  pricing_mode?: PricingPolicy;
   // Backward-compatible aliases for display/cart components
   salePrice?: number | null;
   sale_price?: number | null;

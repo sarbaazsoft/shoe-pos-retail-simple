@@ -278,7 +278,7 @@ async function ensureProductAndSettingsColumns() {
     if (reg.rows[0]?.has_settings) {
       await pgClient.query("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS pricing_mode VARCHAR(30) NOT NULL DEFAULT 'FIXED'");
       await pgClient.query("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS pricing_policy_locked BOOLEAN NOT NULL DEFAULT false");
-      await pgClient.query("UPDATE company_settings SET pricing_policy_locked = true WHERE is_installed = true");
+      await pgClient.query("UPDATE company_settings SET pricing_policy_locked = false");
     }
     if (reg.rows[0]?.has_products) {
       await pgClient.query("ALTER TABLE products DROP COLUMN IF EXISTS size");
@@ -289,6 +289,7 @@ async function ensureProductAndSettingsColumns() {
       await pgClient.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS selling_price INTEGER NOT NULL DEFAULT 0");
       await pgClient.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS min_price INTEGER NOT NULL DEFAULT 0");
       await pgClient.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS max_price INTEGER NOT NULL DEFAULT 0");
+      await pgClient.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS pricing_policy VARCHAR(30) DEFAULT NULL");
     }
     if (reg.rows[0]?.has_settings && reg.rows[0]?.has_products) {
       productColumnsVerified = true;
@@ -313,7 +314,7 @@ export async function getCompanyPricingSettings(): Promise<{
     return {
       pricingMode: mode,
       pricingPolicy: mode,
-      pricingPolicyLocked: Boolean(row?.pricing_policy_locked || row?.is_installed),
+      pricingPolicyLocked: false,
       currencySymbol: row?.currency_symbol || 'Rs.',
     };
   } catch {
@@ -332,11 +333,15 @@ function mapProductRow(row: any, settings: { pricingMode: 'FIXED' | 'NEGOTIABLE'
   const rawMin = Math.round(Number(row.min_price ?? 0));
   const rawMax = Math.round(Number(row.max_price ?? 0));
 
+  const effectivePolicy: 'FIXED' | 'NEGOTIABLE' = row.pricing_policy
+    ? (String(row.pricing_policy).toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED')
+    : settings.pricingMode;
+
   let sellingPrice: number;
   let minPrice: number;
   let maxPrice: number;
 
-  if (settings.pricingMode === 'FIXED') {
+  if (effectivePolicy === 'FIXED') {
     const resolvedFixed = rawSelling > 0 ? rawSelling : rawMax > 0 ? rawMax : rawMin > 0 ? rawMin : costPrice;
     sellingPrice = resolvedFixed;
     minPrice = resolvedFixed;
@@ -364,8 +369,9 @@ function mapProductRow(row: any, settings: { pricingMode: 'FIXED' | 'NEGOTIABLE'
     sellingPrice,
     minPrice,
     maxPrice,
-    pricingPolicy: settings.pricingMode,
-    pricing_mode: settings.pricingMode,
+    pricingPolicy: effectivePolicy,
+    pricing_policy: effectivePolicy,
+    pricing_mode: effectivePolicy,
     // Backward-compatible aliases for POS / Sticker / Catalog components
     salePrice: sellingPrice,
     minSalePrice: minPrice,
@@ -390,7 +396,7 @@ router.get('/lookup/:barcode', requireAuth, async (req, res: Response) => {
                 COALESCE(p.selling_price, 0) as selling_price,
                 COALESCE(p.min_price, 0) as min_price,
                 COALESCE(p.max_price, 0) as max_price,
-                p.total_stock, COALESCE(p.low_stock_limit, 5) as low_stock_limit, p.active, p.created_at, p.updated_at
+                p.total_stock, COALESCE(p.low_stock_limit, 5) as low_stock_limit, p.active, p.pricing_policy, p.created_at, p.updated_at
          FROM products p
          WHERE (p.barcode = $1 OR LOWER(p.sku) = LOWER($1) OR LOWER(COALESCE(p.article, '')) = LOWER($1)) AND p.active = true
          LIMIT 1`,
@@ -422,7 +428,7 @@ router.get('/', requireAuth, async (req, res: Response) => {
              COALESCE(p.selling_price, 0) as selling_price,
              COALESCE(p.min_price, 0) as min_price,
              COALESCE(p.max_price, 0) as max_price,
-             p.total_stock, COALESCE(p.low_stock_limit, 5) as low_stock_limit, p.active, p.created_at, p.updated_at
+             p.total_stock, COALESCE(p.low_stock_limit, 5) as low_stock_limit, p.active, p.pricing_policy, p.created_at, p.updated_at
       FROM products p
       WHERE 1=1
     `;
@@ -543,9 +549,14 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
     const rawMin = minPrice ?? min_price ?? minSalePrice ?? min_sale_price;
     const rawMax = maxPrice ?? max_price ?? maxSalePrice ?? max_sale_price;
 
-    // Validate with strict Zod schema based on store's locked pricing policy
+    const requestedProductPolicy = req.body.pricingPolicy || req.body.pricing_policy || req.body.pricing_mode || req.body.pricingMode;
+    const chosenPolicy: 'FIXED' | 'NEGOTIABLE' = requestedProductPolicy
+      ? (String(requestedProductPolicy).toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED')
+      : settings.pricingPolicy;
+
+    // Validate with strict Zod schema based on product's chosen pricing policy
     const validation = validateAndNormalizeProductPricing({
-      pricingPolicy: settings.pricingPolicy,
+      pricingPolicy: chosenPolicy,
       costPrice: rawCost,
       sellingPrice: rawSelling,
       minPrice: rawMin,
@@ -644,8 +655,8 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
         `INSERT INTO products (
           name, brand, category, sku, article, barcode, primary_image_url,
           description, cost_price, selling_price, min_price, max_price,
-          total_stock, low_stock_limit, active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true)
+          total_stock, low_stock_limit, active, pricing_policy
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true, $15)
         RETURNING id`,
         [
           cleanName,
@@ -662,6 +673,7 @@ router.post('/', requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
           finalMaxPrice,
           physicalStock,
           finalLowStockLimit,
+          chosenPolicy,
         ]
       );
 
@@ -805,9 +817,14 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
     const rawMin = minPrice ?? min_price ?? minSalePrice ?? min_sale_price ?? current.min_price ?? rawSelling;
     const rawMax = maxPrice ?? max_price ?? maxSalePrice ?? max_sale_price ?? current.max_price ?? rawSelling;
 
-    // Validate with strict Zod schema based on store's locked pricing policy
+    const requestedProductPolicy = req.body.pricingPolicy || req.body.pricing_policy || req.body.pricing_mode || req.body.pricingMode;
+    const chosenPolicy: 'FIXED' | 'NEGOTIABLE' = requestedProductPolicy
+      ? (String(requestedProductPolicy).toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED')
+      : (current.pricing_policy ? (String(current.pricing_policy).toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED') : settings.pricingPolicy);
+
+    // Validate with strict Zod schema based on product's chosen pricing policy
     const validation = validateAndNormalizeProductPricing({
-      pricingPolicy: settings.pricingPolicy,
+      pricingPolicy: chosenPolicy,
       costPrice: rawCost,
       sellingPrice: rawSelling,
       minPrice: rawMin,
@@ -833,9 +850,9 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
         name = $1, brand = $2, category = $3, sku = $4, article = $5, barcode = $6,
         primary_image_url = $7, description = $8, cost_price = $9, total_stock = $10,
         low_stock_limit = $11, active = $12,
-        selling_price = $13, min_price = $14, max_price = $15,
+        selling_price = $13, min_price = $14, max_price = $15, pricing_policy = $16,
         updated_at = NOW()
-      WHERE id = $16`,
+      WHERE id = $17`,
       [
         finalName,
         finalBrand,
@@ -852,6 +869,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req: AuthenticatedRequest, 
         finalSellingPrice,
         finalMinPrice,
         finalMaxPrice,
+        chosenPolicy,
         id,
       ]
     );
@@ -977,7 +995,10 @@ router.post('/bulk-import', requireAuth, requireAdmin, async (req: Authenticated
         let effMin = rawMin !== undefined && rawMin !== '' ? Number(rawMin) : undefined;
         let effMax = rawMax !== undefined && rawMax !== '' ? Number(rawMax) : undefined;
 
-        if (settings.pricingPolicy === 'FIXED') {
+        const itemPolicy = rawItem.pricing_policy || rawItem.pricingPolicy || rawItem.pricing_mode || (existingProduct?.pricing_policy || settings.pricingPolicy);
+        const chosenItemPolicy: 'FIXED' | 'NEGOTIABLE' = String(itemPolicy).toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED';
+
+        if (chosenItemPolicy === 'FIXED') {
           if (effSelling === undefined) {
             effSelling = effMax ?? effMin ?? costNum;
           }
@@ -991,7 +1012,7 @@ router.post('/bulk-import', requireAuth, requireAdmin, async (req: Authenticated
         }
 
         const validation = validateAndNormalizeProductPricing({
-          pricingPolicy: settings.pricingPolicy,
+          pricingPolicy: chosenItemPolicy,
           costPrice: costNum,
           sellingPrice: effSelling,
           minPrice: effMin,
@@ -1056,9 +1077,10 @@ router.post('/bulk-import', requireAuth, requireAdmin, async (req: Authenticated
                 low_stock_limit = $9,
                 primary_image_url = $10,
                 description = $11,
+                pricing_policy = $12,
                 active = true,
                 updated_at = NOW()
-              WHERE id = $12`,
+              WHERE id = $13`,
               [
                 mergedName,
                 rawBrand ? finalBrand : existingProduct.brand,
@@ -1071,6 +1093,7 @@ router.post('/bulk-import', requireAuth, requireAdmin, async (req: Authenticated
                 importedLowStock,
                 rawImageUrl || existingProduct.primary_image_url || '',
                 rawDesc || existingProduct.description || '',
+                chosenItemPolicy,
                 existingProduct.id,
               ]
             );

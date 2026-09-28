@@ -67,6 +67,7 @@ export const products = pgTable('products', {
   sellingPrice: integer('selling_price').default(0).notNull(),
   minPrice: integer('min_price').default(0).notNull(),
   maxPrice: integer('max_price').default(0).notNull(),
+  pricingPolicy: text('pricing_policy'),
   totalStock: integer('total_stock').default(0).notNull(),
   lowStockLimit: integer('low_stock_limit').default(5).notNull(),
   active: boolean('active').default(true).notNull(),

@@ -48,6 +48,7 @@ import { ThemeDropdown } from './ThemeDropdown.tsx';
 import { useTheme } from '../../context/ThemeContext.tsx';
 import { api } from '../../services/api.ts';
 import { getProductRetailPrice, getProductMinFloorPrice } from '../../utils/priceFormat.ts';
+import { lookupCachedProductOffline, searchCachedProductsOffline } from '../../utils/offlineDb.ts';
 
 interface HeaderProps {
   currentTab: string;
@@ -271,7 +272,66 @@ export const Header: React.FC<HeaderProps> = ({
             singleProduct = directLookup.product;
           }
         } catch {
-          // not found
+          // not found via network lookup
+        }
+      }
+
+      // 3. OFFLINE FALLBACK: If network failed or server unreachable, lookup from browser IndexedDB cached catalog
+      if (!singleProduct) {
+        try {
+          const cachedProduct = await lookupCachedProductOffline(q).catch(() => null);
+          if (cachedProduct) {
+            singleProduct = {
+              ...cachedProduct,
+              totalStock: cachedProduct.totalStock ?? cachedProduct.total_stock ?? 0,
+              costPrice: parseFloat(cachedProduct.costPrice || cachedProduct.cost_price || 0),
+              minSalePrice: parseFloat(cachedProduct.minSalePrice || cachedProduct.min_sale_price || 0),
+              maxSalePrice: parseFloat(cachedProduct.maxSalePrice || cachedProduct.max_sale_price || 0),
+              sellingPrice: parseFloat(
+                cachedProduct.sellingPrice ||
+                  cachedProduct.selling_price ||
+                  cachedProduct.salePrice ||
+                  cachedProduct.sale_price ||
+                  0
+              ),
+              isOfflineCached: true,
+            };
+          } else {
+            const cachedList = await searchCachedProductsOffline(q).catch(() => []);
+            if (cachedList && cachedList.length > 0) {
+              const exactArticle = cachedList.find(
+                (p: any) => p.article && p.article.trim().toLowerCase() === lowerQ
+              );
+              const exactSkuOrBarcode = cachedList.find(
+                (p: any) =>
+                  (p.sku && p.sku.trim().toLowerCase() === lowerQ) ||
+                  (p.barcode && p.barcode.trim().toLowerCase() === lowerQ)
+              );
+              const startsArticle = cachedList.find(
+                (p: any) => p.article && p.article.trim().toLowerCase().startsWith(lowerQ)
+              );
+              const found = exactArticle || exactSkuOrBarcode || startsArticle || cachedList[0];
+              if (found) {
+                singleProduct = {
+                  ...found,
+                  totalStock: found.totalStock ?? found.total_stock ?? 0,
+                  costPrice: parseFloat(found.costPrice || found.cost_price || 0),
+                  minSalePrice: parseFloat(found.minSalePrice || found.min_sale_price || 0),
+                  maxSalePrice: parseFloat(found.maxSalePrice || found.max_sale_price || 0),
+                  sellingPrice: parseFloat(
+                    found.sellingPrice ||
+                      found.selling_price ||
+                      found.salePrice ||
+                      found.sale_price ||
+                      0
+                  ),
+                  isOfflineCached: true,
+                };
+              }
+            }
+          }
+        } catch {
+          // offline lookup failed
         }
       }
 
@@ -551,14 +611,20 @@ export const Header: React.FC<HeaderProps> = ({
                                 </div>
                               </div>
 
-                              <div className="shrink-0 text-right">
+                              <div className="shrink-0 text-right flex flex-col items-end gap-1">
                                 <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  (prod.totalStock ?? 0) > 0 
+                                  (prod.totalStock ?? prod.total_stock ?? 0) > 0 
                                     ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40'
                                     : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40'
                                 }`}>
-                                  {prod.totalStock ?? 0} in stock
+                                  {prod.totalStock ?? prod.total_stock ?? 0} in stock
                                 </span>
+                                {(prod.isOfflineCached || !navigator.onLine) && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 inline-flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    Offline Cache
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>

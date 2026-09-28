@@ -391,8 +391,10 @@ router.post('/settings', async (req: Request, res: Response) => {
     const existingSettings = await pgClient.query<any>('SELECT id, is_installed, pricing_policy_locked, pricing_mode FROM company_settings LIMIT 1');
     if (existingSettings.rows.length > 0) {
       const existingRow = existingSettings.rows[0];
-      // If store was already initialized and pricing policy locked, preserve the locked policy
-      if (existingRow.is_installed || existingRow.pricing_policy_locked) {
+      // Allow updated pricing policy
+      if (req.body.pricingPolicy || req.body.pricing_policy || req.body.pricing_mode || req.body.pricingMode) {
+        finalPricingMode = requestedPricingMode === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED';
+      } else if (existingRow.pricing_mode) {
         finalPricingMode = String(existingRow.pricing_mode || 'FIXED').toUpperCase() === 'NEGOTIABLE' ? 'NEGOTIABLE' : 'FIXED';
       }
       await pgClient.query(
@@ -658,8 +660,8 @@ router.post('/complete', async (req: Request, res: Response) => {
       });
     }
 
-    // Mark installation complete and permanently lock pricing_policy in database
-    await pgClient.query('UPDATE company_settings SET is_installed = true, pricing_policy_locked = true, updated_at = NOW()');
+    // Mark installation complete
+    await pgClient.query('UPDATE company_settings SET is_installed = true, pricing_policy_locked = false, updated_at = NOW()');
 
     // Fetch the primary admin user to issue immediate login token
     const adminRes = await pgClient.query<any>(
@@ -797,7 +799,7 @@ router.post('/setup', async (req: Request, res: Response) => {
           tax_id = $6, strn = $7, logo = $8, currency = $9, currency_symbol = $10,
           currency_name = $11, invoice_prefix = $12, purchase_prefix = $13,
           barcode_prefix = $14, invoice_footer = $15, low_stock_limit = $16,
-          pricing_mode = $17, pricing_policy_locked = true,
+          pricing_mode = $17, pricing_policy_locked = false,
           is_installed = true, updated_at = NOW()
         WHERE id = $18`,
         [

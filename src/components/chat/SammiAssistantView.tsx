@@ -385,6 +385,26 @@ export const SammiAssistantView: React.FC<SammiAssistantViewProps> = ({
       {/* STICKY BOTTOM INPUT: ChatGPT / Gemini Style Centered Dock */}
       <div className="sticky bottom-0 z-30 pt-3 pb-4 sm:pb-6 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/95 to-transparent dark:from-[#0A0E1A] dark:via-[#0A0E1A]/95 dark:to-transparent backdrop-blur-xs">
         <div className="max-w-4xl lg:max-w-5xl xl:max-w-6xl w-full mx-auto px-4 sm:px-6">
+          {/* Quick suggested chips */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1 scrollbar-none">
+            {[
+              'Pricing Policy kaise kaam karti hai?',
+              'Add Product mein size aur color kahan hai?',
+              'Joota wapis ya exchange kaise karein?',
+              'Silent printing kaise enable karein?',
+            ].map((chip, cIdx) => (
+              <button
+                key={cIdx}
+                type="button"
+                onClick={() => handleSendMessage(chip)}
+                disabled={isLoading}
+                className="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold bg-white dark:bg-[#131B2E] border border-purple-200 dark:border-purple-800/80 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/40 shadow-2xs transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                ✨ {chip}
+              </button>
+            ))}
+          </div>
+
           <div className="bg-white dark:bg-[#131B2E] border border-slate-200 dark:border-purple-800/80 rounded-2xl shadow-lg p-2.5 sm:p-3 transition-shadow focus-within:shadow-xl">
             <form
               onSubmit={(e) => {

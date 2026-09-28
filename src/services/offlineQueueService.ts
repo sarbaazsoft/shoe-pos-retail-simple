@@ -1,6 +1,6 @@
 // Offline Sales Queue Manager: Background synchronization, queue status listener, and local fallback
 
-import { api } from './api.ts';
+import { api, getAuthToken } from './api.ts';
 import {
   QueuedSale,
   queueOfflineSale,
@@ -208,6 +208,20 @@ class OfflineQueueService {
       return { synced: 0, failed: 0 };
     }
 
+    // Do not attempt network checkout if browser is explicitly offline
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.isOnlineState = false;
+      this.isBackendConnectedState = false;
+      this.notify();
+      return { synced: 0, failed: 0 };
+    }
+
+    // Do not attempt checkout if user is not authenticated yet (e.g. login screen)
+    const token = getAuthToken();
+    if (!token) {
+      return { synced: 0, failed: 0 };
+    }
+
     const allSales = await getOfflineSales();
     const pendingSales = allSales.filter((s) => s.status === 'PENDING' || s.status === 'FAILED');
 
@@ -259,16 +273,30 @@ class OfflineQueueService {
 
         synced++;
       } catch (err: any) {
-        console.error(`[OfflineSync] Failed to sync sale ${sale.clientTxId}:`, err);
-        const errMsg = err?.message || 'Network sync error';
-        await updateOfflineSaleStatus(sale.clientTxId, 'FAILED', {
-          errorMessage: errMsg,
-        });
-        failed++;
-        // If it's a hard network error (server unreachable), stop loop until next network pulse
-        if (err?.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+        const rawMsg = String(err?.message || err || '');
+        const isNetworkError =
+          rawMsg.includes('Failed to fetch') ||
+          rawMsg.includes('NetworkError') ||
+          rawMsg.includes('Network request failed') ||
+          rawMsg.includes('Load failed') ||
+          rawMsg.includes('ERR_CONNECTION') ||
+          rawMsg.includes('abort');
+
+        if (isNetworkError) {
+          console.warn(`[OfflineSync] Remote server temporarily unreachable while syncing ${sale.clientTxId}. Waiting for connection...`);
+          this.isBackendConnectedState = false;
           this.isOnlineState = false;
-          break;
+          await updateOfflineSaleStatus(sale.clientTxId, 'PENDING', {
+            errorMessage: 'Server offline (will auto-retry on reconnect)',
+          });
+          failed++;
+          break; // Stop immediately, avoid flooding when network is unreachable
+        } else {
+          console.warn(`[OfflineSync] Sale ${sale.clientTxId} sync error: ${rawMsg}`);
+          await updateOfflineSaleStatus(sale.clientTxId, 'FAILED', {
+            errorMessage: rawMsg,
+          });
+          failed++;
         }
       }
     }
@@ -276,6 +304,7 @@ class OfflineQueueService {
     this.isSyncingState = false;
     if (synced > 0) {
       this.lastSyncedAtState = new Date();
+      this.isBackendConnectedState = true;
       try {
         localStorage.setItem('pos_last_synced_at', this.lastSyncedAtState.toISOString());
       } catch {}
@@ -309,6 +338,12 @@ class OfflineQueueService {
   }
 
   public async retrySingleSale(sale: QueuedSale): Promise<boolean> {
+    const token = getAuthToken();
+    if (!token) {
+      console.warn('[OfflineSync] Cannot retry sync: user is not logged in.');
+      return false;
+    }
+
     try {
       await updateOfflineSaleStatus(sale.clientTxId, 'SYNCING');
       this.notify();
@@ -334,12 +369,15 @@ class OfflineQueueService {
       await updateOfflineSaleStatus(sale.clientTxId, 'SYNCED', {
         syncedInvoiceNumber: res.invoiceNumber,
         syncedAt: new Date().toISOString(),
+        errorMessage: undefined,
       });
       this.recordRemoteSave();
       return true;
     } catch (err: any) {
+      const rawMsg = String(err?.message || err || '');
+      console.warn(`[OfflineSync] Retry for sale ${sale.clientTxId} notice:`, rawMsg);
       await updateOfflineSaleStatus(sale.clientTxId, 'FAILED', {
-        errorMessage: err?.message || 'Sync failed',
+        errorMessage: rawMsg,
       });
       this.notify();
       return false;
